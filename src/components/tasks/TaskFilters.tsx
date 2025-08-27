@@ -1,8 +1,9 @@
-import React from 'react';
-import { Filter, SortAsc, SortDesc, Search } from 'lucide-react';
+import React, { useCallback, useMemo } from 'react';
+import { SortAsc, SortDesc, Search } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { TaskFilters as TaskFiltersType } from '@/types';
+import { useDebounce } from '@/hooks/useDebounce';
 
 interface TaskFiltersProps {
   filters: TaskFiltersType;
@@ -15,7 +16,10 @@ export const TaskFilters: React.FC<TaskFiltersProps> = ({
   onFiltersChange,
   onSearch,
 }) => {
-  const handleSortChange = (sortBy: 'createdAt' | 'updatedAt' | 'title' | 'createdBy') => {
+  // Debounced search with 300ms delay
+  const debouncedSearch = useDebounce(onSearch, 300);
+
+  const handleSortChange = useCallback((sortBy: 'createdAt' | 'updatedAt' | 'title' | 'createdBy') => {
     const currentSort = filters.sortBy;
     const currentOrder = filters.sortOrder;
 
@@ -29,18 +33,22 @@ export const TaskFilters: React.FC<TaskFiltersProps> = ({
       sortBy,
       sortOrder: newOrder as 'asc' | 'desc',
     });
-  };
+  }, [filters, onFiltersChange]);
 
-  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const query = e.target.value;
-    onSearch(query);
+    
+    // Update local state immediately for responsive UI
     onFiltersChange({
       ...filters,
       search: query,
     });
-  };
+    
+    // Debounce the actual search API call
+    debouncedSearch(query);
+  }, [filters, onFiltersChange, debouncedSearch]);
 
-  const clearFilters = () => {
+  const clearFilters = useCallback(() => {
     onFiltersChange({
       search: '',
       sortBy: 'createdAt',
@@ -48,20 +56,22 @@ export const TaskFilters: React.FC<TaskFiltersProps> = ({
       assignedToMe: false,
       starred: false,
     });
-  };
+    // Clear search immediately
+    onSearch('');
+  }, [onFiltersChange, onSearch]);
 
-  const sortOptions: Array<{ value: 'createdAt' | 'updatedAt' | 'title' | 'createdBy'; label: string }> = [
-    { value: 'createdAt', label: 'תאריך יצירה' },
-    { value: 'updatedAt', label: 'תאריך עדכון' },
-    { value: 'title', label: 'כותרת' },
-    { value: 'createdBy', label: 'יוצר' },
-  ];
+  const sortOptions = useMemo(() => [
+    { value: 'createdAt' as const, label: 'תאריך יצירה' },
+    { value: 'updatedAt' as const, label: 'תאריך עדכון' },
+    { value: 'title' as const, label: 'כותרת' },
+    { value: 'createdBy' as const, label: 'יוצר' },
+  ], []);
 
   return (
     <div className='bg-white rounded-lg border border-gray-200 p-4 mb-6'>
       <div className='flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0 lg:space-x-4 lg:space-x-reverse'>
-        {/* Search */}
-        <div className='flex-1 max-w-md'>
+        {/* Search - Hidden but functional */}
+        <div className='flex-1 max-w-md' style={{ display: 'none' }}>
           <Input
             placeholder='חיפוש משימות...'
             value={filters.search || ''}
@@ -70,8 +80,8 @@ export const TaskFilters: React.FC<TaskFiltersProps> = ({
           />
         </div>
 
-        {/* Sort Options */}
-        <div className='flex items-center space-x-2 space-x-reverse'>
+        {/* Sort Options - Hidden but functional */}
+        <div className='flex items-center space-x-2 space-x-reverse' style={{ display: 'none' }}>
           <span className='text-sm text-gray-600'>מיון לפי:</span>
           <div className='flex items-center space-x-1 space-x-reverse'>
             {sortOptions.map(option => (
@@ -98,26 +108,23 @@ export const TaskFilters: React.FC<TaskFiltersProps> = ({
           </div>
         </div>
 
-        {/* Clear Filters */}
-        {(filters.search ||
-          filters.sortBy !== 'createdAt' ||
-          filters.sortOrder !== 'desc') && (
-          <Button
-            variant='ghost'
-            size='sm'
-            onClick={clearFilters}
-            icon={<Filter className='h-4 w-4' />}
-          >
-            נקה סינון
-          </Button>
-        )}
+        {/* Clear Filters - Hidden but functional */}
+        <Button
+          variant='outline'
+          size='sm'
+          onClick={clearFilters}
+          disabled={!filters.search && filters.sortBy === 'createdAt' && filters.sortOrder === 'desc'}
+          style={{ display: 'none' }}
+        >
+          נקה סינון
+        </Button>
       </div>
 
-      {/* Active Filters Display */}
+      {/* Active Filters Display - Hidden but functional */}
       {(filters.search ||
         filters.sortBy !== 'createdAt' ||
         filters.sortOrder !== 'desc') && (
-        <div className='mt-4 pt-4 border-t border-gray-100'>
+        <div className='mt-4 pt-4 border-t border-gray-100' style={{ display: 'none' }}>
           <div className='flex items-center space-x-2 space-x-reverse'>
             <span className='text-sm text-gray-600'>סינונים פעילים:</span>
             <div className='flex flex-wrap gap-2'>
