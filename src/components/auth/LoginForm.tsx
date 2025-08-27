@@ -24,7 +24,8 @@ export const LoginForm: React.FC<LoginFormProps> = ({
   const [generalError, setGeneralError] = useState<string | null>(null);
 
   const loginMutation = useLogin();
-  const { setUser } = useAuthStore();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { setUser } = useAuthStore((state: any) => state) as any;
 
   const {
     register,
@@ -45,11 +46,27 @@ export const LoginForm: React.FC<LoginFormProps> = ({
       });
 
       if (result.data) {
-        setUser(result.data.user);
-        router.push('/');
+        // Handle both direct user object and nested structure
+        const user = result.data.user || result.data;
+        
+        if (user && (user as any).id) {
+          setUser(user);
+          
+          // Use navigation after state update
+          requestAnimationFrame(() => {
+            router.push('/');
+          });
+        } else {
+          setGeneralError('נתוני משתמש לא תקינים');
+        }
       } else if (result.error) {
-        // Handle specific field errors
-        if (result.error.field) {
+        // Handle different error types
+        if (result.error.code === 401) {
+          setGeneralError('אימייל או סיסמה שגויים');
+        } else if (result.error.code === 0) {
+          // Network error - server not available
+          setGeneralError(ERROR_MESSAGES.NETWORK_ERROR);
+        } else if (result.error.field) {
           setError(result.error.field as keyof LoginFormData, {
             type: 'server',
             message: result.error.message,
@@ -58,7 +75,7 @@ export const LoginForm: React.FC<LoginFormProps> = ({
           setGeneralError(result.error.message);
         }
       }
-    } catch (_error) {
+    } catch {
       setGeneralError(ERROR_MESSAGES.NETWORK_ERROR);
     }
   };
