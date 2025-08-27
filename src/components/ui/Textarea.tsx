@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useId } from 'react';
 import { cn } from '@/lib/utils';
 
 export interface TextareaProps
@@ -8,6 +8,7 @@ export interface TextareaProps
   helperText?: string;
   variant?: 'default' | 'filled';
   resize?: 'none' | 'vertical' | 'horizontal' | 'both';
+  required?: boolean;
 }
 
 const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
@@ -19,13 +20,14 @@ const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
       helperText,
       variant = 'default',
       resize = 'vertical',
+      required = false,
       id,
       ...props
     },
     ref
   ) => {
-    const textareaId =
-      id || `textarea-${Math.random().toString(36).substr(2, 9)}`;
+    const generatedId = useId();
+    const textareaId = id || `textarea-${generatedId}`;
 
     const baseClasses =
       'block w-full rounded-lg border transition-colors focus:outline-none focus:ring-2 focus:ring-offset-0 disabled:opacity-50 disabled:cursor-not-allowed';
@@ -61,6 +63,7 @@ const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
             className='block text-sm font-medium text-gray-700 mb-1'
           >
             {label}
+            {required && <span className='text-red-500 ml-1'>*</span>}
           </label>
         )}
 
