@@ -63,8 +63,9 @@ export const taskSchema = z.object({
     .trim(),
   description: z
     .string()
+    .min(1, 'תיאור הוא שדה חובה')
     .max(5000, 'תיאור לא יכול להיות ארוך מ-5000 תווים')
-    .optional(),
+    .trim(),
 });
 
 export const updateTaskSchema = z.object({
@@ -72,12 +73,12 @@ export const updateTaskSchema = z.object({
     .string()
     .min(1, 'כותרת היא שדה חובה')
     .max(120, 'כותרת לא יכולה להיות ארוכה מ-120 תווים')
-    .trim()
-    .optional(),
+    .trim(),
   description: z
     .string()
+    .min(1, 'תיאור הוא שדה חובה')
     .max(5000, 'תיאור לא יכול להיות ארוך מ-5000 תווים')
-    .optional(),
+    .trim(),
   assignees: z
     .array(z.string().regex(/^[0-9a-fA-F]{24}$/, 'מזהה משתמש לא תקין'))
     .max(20, 'לא ניתן להוסיף יותר מ-20 משויכים')
