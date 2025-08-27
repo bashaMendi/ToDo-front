@@ -1,9 +1,12 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
+import { GlobalErrorBoundary } from '@/components/ui/GlobalErrorBoundary';
 import { QueryProvider } from '@/components/providers/QueryProvider';
 import { ToastProvider } from '@/components/ui/Toast';
 import { PerformanceDashboard } from '@/components/debug/PerformanceDashboard';
+import { AuthProvider } from '@/components/providers/AuthProvider';
+import { SessionManager } from '@/components/auth/SessionManager';
 
 export const metadata: Metadata = {
   title: 'מערכת ניהול משימות משותפת',
@@ -23,14 +26,20 @@ export default function RootLayout({
   return (
     <html lang="he" dir="rtl">
       <body className="font-sans">
-        <ErrorBoundary>
-          <QueryProvider>
-            <ToastProvider>
-              {children}
-              <PerformanceDashboard />
-            </ToastProvider>
-          </QueryProvider>
-        </ErrorBoundary>
+        <GlobalErrorBoundary>
+          <ErrorBoundary>
+            <QueryProvider>
+              <AuthProvider>
+                <SessionManager>
+                  <ToastProvider>
+                    {children}
+                    <PerformanceDashboard />
+                  </ToastProvider>
+                </SessionManager>
+              </AuthProvider>
+            </QueryProvider>
+          </ErrorBoundary>
+        </GlobalErrorBoundary>
       </body>
     </html>
   );
