@@ -145,7 +145,7 @@ export const ERROR_MESSAGES = {
   TASK_DELETE_FAILED: 'שגיאה במחיקת המשימה',
 
   // Network
-  NETWORK_ERROR: 'שגיאת רשת. בדוק את החיבור לאינטרנט',
+  NETWORK_ERROR: 'אין גישה למערכת כרגע. נסה שוב מאוחר יותר',
   SERVER_ERROR: 'שגיאת שרת. נסה שוב מאוחר יותר',
   TIMEOUT_ERROR: 'פג זמן החיבור. נסה שוב',
 
