@@ -1,6 +1,6 @@
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback, useMemo } from 'react';
 
-// Performance metrics
+// ----- Types -----
 interface PerformanceMetrics {
   componentName: string;
   renderTime: number;
@@ -9,55 +9,50 @@ interface PerformanceMetrics {
   memoryUsage?: number;
 }
 
-// Performance monitoring hook
+// ----- Component performance monitoring -----
 export function usePerformance(componentName: string) {
   const mountTimeRef = useRef<number>(Date.now());
   const renderTimeRef = useRef<number>(0);
   const updateCountRef = useRef<number>(0);
   const lastRenderTimeRef = useRef<number>(0);
 
-  // Measure render time
+  // Measures time between the start of a render and its commit.
+  // Returns a cleanup function that should be called at commit time.
   const measureRender = useCallback(() => {
     if (typeof window === 'undefined') return () => {};
-    
+
     const startTime = performance.now();
-    
+
     return () => {
       const endTime = performance.now();
       const renderTime = endTime - startTime;
-      
+
       renderTimeRef.current = renderTime;
       updateCountRef.current++;
       lastRenderTimeRef.current = Date.now();
 
-      // Log performance in development
-      if (process.env.NODE_ENV === 'development') {
-        console.log(`⚡ ${componentName} rendered in ${renderTime.toFixed(2)}ms`);
-      }
-
-      // Send to analytics in production
-      if (process.env.NODE_ENV === 'production') {
-        // Example: send to analytics service
-        // analytics.track('component_performance', {
-        //   component: componentName,
-        //   renderTime,
-        //   updateCount: updateCountRef.current,
-        // });
-      }
+      // Example: send to analytics in production
+      // if (process.env.NODE_ENV === 'production') {
+      //   analytics.track('component_performance', {
+      //     component: componentName,
+      //     renderTime,
+      //     updateCount: updateCountRef.current,
+      //   });
+      // }
     };
-  }, [componentName]);
+  }, []);
 
-  // Get memory usage (if available)
+  // Reads JS heap usage if supported (Chrome only)
   const getMemoryUsage = useCallback((): number | undefined => {
     if (typeof window === 'undefined') return undefined;
     if ('memory' in performance) {
-      const memory = (performance as { memory: { usedJSHeapSize: number } }).memory;
+      const memory = (performance as unknown as { memory: { usedJSHeapSize: number } }).memory;
       return memory.usedJSHeapSize / 1024 / 1024; // MB
     }
     return undefined;
   }, []);
 
-  // Get performance metrics
+  // Returns current metrics snapshot
   const getMetrics = useCallback((): PerformanceMetrics => {
     return {
       componentName,
@@ -68,20 +63,15 @@ export function usePerformance(componentName: string) {
     };
   }, [componentName, getMemoryUsage]);
 
-  // Monitor component lifecycle
+  // On mount: prepare measurement. On unmount: log final metrics in dev.
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    
+
     const cleanup = measureRender();
-    
+
     return () => {
       cleanup();
-      
-      // Log final metrics on unmount
-      if (process.env.NODE_ENV === 'development') {
-        const metrics = getMetrics();
-        console.log(`📊 ${componentName} final metrics:`, metrics);
-      }
+      // Silent cleanup - no logging in production
     };
   }, [measureRender, getMetrics, componentName]);
 
@@ -92,7 +82,7 @@ export function usePerformance(componentName: string) {
   };
 }
 
-// Page performance monitoring
+// ----- Page-level performance monitoring -----
 export function usePagePerformance(pageName: string) {
   const startTimeRef = useRef<number>(0);
   const metricsRef = useRef<{
@@ -103,19 +93,19 @@ export function usePagePerformance(pageName: string) {
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    
+
     startTimeRef.current = performance.now();
 
-    // Measure First Contentful Paint
+    // First Contentful Paint
     const fcpObserver = new PerformanceObserver((list) => {
       const entries = list.getEntries();
-      const fcpEntry = entries.find(entry => entry.name === 'first-contentful-paint');
+      const fcpEntry = entries.find((entry) => entry.name === 'first-contentful-paint');
       if (fcpEntry) {
         metricsRef.current.firstContentfulPaint = fcpEntry.startTime;
       }
     });
 
-    // Measure Largest Contentful Paint
+    // Largest Contentful Paint
     const lcpObserver = new PerformanceObserver((list) => {
       const entries = list.getEntries();
       const lcpEntry = entries[entries.length - 1];
@@ -124,11 +114,11 @@ export function usePagePerformance(pageName: string) {
       }
     });
 
-    // Measure Cumulative Layout Shift
+    // Cumulative Layout Shift
     const clsObserver = new PerformanceObserver((list) => {
       let cls = 0;
       for (const entry of list.getEntries()) {
-        const layoutShiftEntry = entry as { hadRecentInput?: boolean; value?: number };
+        const layoutShiftEntry = entry as unknown as { hadRecentInput?: boolean; value?: number };
         if (!layoutShiftEntry.hadRecentInput && layoutShiftEntry.value) {
           cls += layoutShiftEntry.value;
         }
@@ -140,26 +130,15 @@ export function usePagePerformance(pageName: string) {
       fcpObserver.observe({ entryTypes: ['paint'] });
       lcpObserver.observe({ entryTypes: ['largest-contentful-paint'] });
       clsObserver.observe({ entryTypes: ['layout-shift'] });
-    } catch (error) {
-      console.warn('Performance Observer not supported:', error);
+    } catch {
+      // Silent fail for performance observer
     }
 
     return () => {
       fcpObserver.disconnect();
       lcpObserver.disconnect();
       clsObserver.disconnect();
-
-      // Log page performance metrics
-      const totalTime = performance.now() - startTimeRef.current;
-      const metrics = {
-        pageName,
-        totalTime,
-        ...metricsRef.current,
-      };
-
-      if (process.env.NODE_ENV === 'development') {
-        console.log(`📈 ${pageName} performance:`, metrics);
-      }
+      // Silent cleanup - no logging in production
     };
   }, [pageName]);
 
@@ -172,7 +151,7 @@ export function usePagePerformance(pageName: string) {
   };
 }
 
-// Network performance monitoring
+// ----- Network performance monitoring (stable getNetworkInfo) -----
 export function useNetworkPerformance() {
   const networkInfoRef = useRef<{
     effectiveType?: string;
@@ -180,37 +159,36 @@ export function useNetworkPerformance() {
     rtt?: number;
   }>({});
 
+  // Stable function identity so components can safely include it in deps
+  const getNetworkInfo = useCallback(() => networkInfoRef.current, []);
+
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    
-    // Get network information if available
-    if ('connection' in navigator) {
-      const connection = (navigator as { connection: { 
-        effectiveType?: string; 
-        downlink?: number; 
-        rtt?: number;
-        addEventListener: (event: string, handler: () => void) => void;
-        removeEventListener: (event: string, handler: () => void) => void;
-      } }).connection;
-      
-      const updateNetworkInfo = () => {
-        networkInfoRef.current = {
-          effectiveType: connection.effectiveType,
-          downlink: connection.downlink,
-          rtt: connection.rtt,
-        };
-      };
 
-      updateNetworkInfo();
-      connection.addEventListener('change', updateNetworkInfo);
+    // Cross-browser support
+    const nav = navigator as unknown as { connection?: unknown; mozConnection?: unknown; webkitConnection?: unknown };
+    const connection =
+      nav.connection || nav.mozConnection || nav.webkitConnection;
 
-      return () => {
-        connection.removeEventListener('change', updateNetworkInfo);
+    if (!connection) return;
+
+    const updateNetworkInfo = () => {
+      const conn = connection as unknown as { effectiveType?: string; downlink?: number; rtt?: number };
+      networkInfoRef.current = {
+        effectiveType: conn.effectiveType,
+        downlink: conn.downlink,
+        rtt: conn.rtt,
       };
-    }
+    };
+
+    updateNetworkInfo();
+    (connection as unknown as { addEventListener?: (event: string, handler: () => void) => void }).addEventListener?.('change', updateNetworkInfo);
+
+    return () => {
+      (connection as unknown as { removeEventListener?: (event: string, handler: () => void) => void }).removeEventListener?.('change', updateNetworkInfo);
+    };
   }, []);
 
-  return {
-    getNetworkInfo: () => networkInfoRef.current,
-  };
+  // Memoize returned object to avoid new identity on each render
+  return useMemo(() => ({ getNetworkInfo }), [getNetworkInfo]);
 }
