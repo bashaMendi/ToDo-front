@@ -61,8 +61,8 @@ export const ExportButton: React.FC<ExportButtonProps> = ({ className }) => {
         document.body.removeChild(link);
         window.URL.revokeObjectURL(url);
       }
-    } catch (error) {
-      console.error('Export failed:', error);
+    } catch {
+      // Silent fail for export
     }
 
     setIsOpen(false);
