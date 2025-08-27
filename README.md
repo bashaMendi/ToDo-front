@@ -2,7 +2,7 @@
 
 ## סקירה כללית
 
-מערכת ניהול משימות משותפת (Shared Board) שבה **כל המשתמשים רואים את כל המשימות** ויכולים **לערוך כל משימה**. המערכת תומכת בעדכון **בזמן אמת** (WebSockets), באימות מאובטח (Login/Sign‑up/Google OAuth/שכחתי סיסמה), **כוכב אישי** לסימון מועדפים, וייצוא **המשימות האישיות** לקובץ.
+מערכת ניהול משימות משותפת (Shared Board) שבה **כל המשתמשים רואים את כל המשימות** ויכולים **לערוך כל משימה**. המערכת תומכת בעדכון **בזמן אמת** (WebSockets), באימות מאובטח (Login/Sign‑up/, **כוכב אישי** לסימון מועדפים, וייצוא **המשימות האישיות** לקובץ.
 
 ## תכונות עיקריות
 
@@ -10,24 +10,21 @@
 
 - כניסה עם שם משתמש וסיסמה
 - יצירת משתמש חדש (Sign-up)
-- הזדהות Google OAuth
-- שכחתי סיסמה (איפוס דרך אימייל)
 - סשן מאובטח עם Cookie HttpOnly
+- Protected Routes עם AuthProvider
 
 ### 📋 ניהול משימות
 
 - **לוח משימות משותף** - כל המשתמשים רואים ועורכים את כל המשימות
 - **עדכון בזמן אמת** - WebSockets לעדכונים מיידיים
 - **כוכב אישי** - סימון מועדפים אישי לכל משתמש
-- **היסטוריית שינויים** - מעקב מלא אחר כל עדכון
 - **שכפול משימות** - יצירת עותק של משימה קיימת
 
-### 🎯 ניווט וסינון
+### 🎯 ניווט 
 
 - **דף הבית** - הצגת כל המשימות
 - **המשימות שלי** - משימות שיצרתי או שאני משויך אליהן
 - **סומנו בכוכב** - משימות שסימנתי בכוכב
-- **חיפוש מתקדם** - חיפוש בכותרת, תיאור, יוצר ומשויך
 
 ### 📤 ייצוא נתונים
 
@@ -37,7 +34,6 @@
 
 ### 📱 תמיכה במובייל
 
-- תפריט המבורגר במובייל
 - תצוגה מותאמת למסכים קטנים
 - נגישות מלאה (WCAG 2.2 AA)
 - תמיכה ב-RTL
@@ -46,115 +42,77 @@
 
 ### Frontend
 
-- **Next.js 14+** (App Router)
-- **TypeScript** (strict mode)
-- **Tailwind CSS** (עיצוב)
-- **Zustand** (ניהול state)
-- **Socket.io Client** (WebSockets)
-- **React Hook Form** (טפסים)
-- **Zod** (ולידציה)
+- **Next.js 15.4.6** (App Router)
+- **React 19.1.0** (Latest)
+- **TypeScript 5** (strict mode)
+- **Tailwind CSS 4** (עיצוב)
+- **Zustand 4.4.7** (ניהול state)
+- **Socket.io Client 4.8.1** (WebSockets)
+- **React Hook Form 7.62.0** (טפסים)
+- **Zod 4.0.17** (ולידציה)
+- **TanStack Query 5.85.3** (Server State Management)
+- **Headless UI 2.2.7** (Accessible Components)
+- **Lucide React 0.539.0** (Icons)
+- **Date-fns 4.1.0** (Date Manipulation)
 
-### Backend
+### Development Tools
 
-- **Node.js 20+**
-- **Fastify/Express** (API)
-- **Socket.io** (WebSockets)
-- **Prisma** (ORM ל-MongoDB)
-- **Argon2** (הצפנת סיסמאות)
-- **Pino** (לוגים)
-
-### Database & Cache
-
-- **MongoDB Atlas** (מסד נתונים ראשי)
-- **Redis** (סשנים + WebSocket adapter)
+- **ESLint 9.33.0** (Code Linting)
+- **Prettier 3.6.2** (Code Formatting)
+- **TypeScript ESLint** (TypeScript Linting)
+- **Accessibility ESLint** (A11y Rules)
 
 ### Deployment
 
-- **Vercel** (Frontend)
-- **Render/Fly.io/Railway** (Backend)
-- **GitHub Actions** (CI/CD)
+- **Netlify** (Static Site Hosting)
 
-## מבנה המסכים
 
-### 1. מסך לוגין
+## מבנה הפרויקט
 
-- כניסה עם שם משתמש וסיסמה
-- יצירת משתמש חדש (Sign-up)
-- הזדהות Google OAuth
-- "שכחתי סיסמה" (איפוס דרך אימייל)
-
-### 2. מסך הבית (דף ראשי)
-
-**Header קבוע:**
-
-- לוגו
-- שם משתמש (בלחיצה → התנתקות)
-- חיפוש (הקשרי לכל מסך)
-- כפתור יצירת משימה חדשה
-
-**תוכן:**
-
-- הצגת כל המשימות הקיימות
-- פגינציה או Infinite Scroll
-
-### 3. תפריט ניווט
-
-- **המשימות שלי** - משימות שיצרתי או שאני משויך אליהן
-- **סומנו בכוכב** - משימות שסימנתי בכוכב (אישי)
-
-### 4. תפריט המבורגר (מובייל)
-
-- שם משתמש
-- דף הבית
-- המשימות שלי
-- סומנו בכוכב
-- התנתקות
-
-## מבנה כרטיס משימה
-
-### מצב הצגה
-
-- כותרת
-- תיאור
-- המשתמש שיצר
-- שעה ותאריך יצירה
-- נערך לאחרונה ע"י
-- כוכב (אישי)
-
-**בהובר (או ⋯ במובייל):**
-
-- אייקונים: מחיקה, היסטוריה, שכפול
-
-### מצב עריכה (Modal/Popup)
-
-- כותרת (עריכה)
-- תיאור (עריכה)
-- המשתמש שיצר (תצוגה בלבד)
-- שעה ותאריך יצירה (תצוגה בלבד)
-- נערך לאחרונה ע"י (תצוגה בלבד)
-- כוכב (אישי)
-- כפתור "הוסף את עצמך למשימה"
-- כפתור שמירת שינויים
-- איקס לסגירה
-- אייקונים: היסטוריית שינויים, שכפול, מחיקה
-
-**ניווט:** לחיצה על כרטיס המשימה → פתיחת מצב עריכה
+```
+to-do-list-front/
+├── app/                    # Next.js App Router
+│   ├── favicon.ico
+│   ├── globals.css        # Global Styles
+│   ├── layout.tsx         # Root Layout
+│   ├── page.tsx           # Home Page
+│   ├── login/             # Login Page
+│   ├── mine/              # My Tasks Page
+│   └── starred/           # Starred Tasks Page
+├── src/
+│   ├── components/        # React Components
+│   │   ├── auth/          # Authentication Components
+│   │   ├── debug/         # Debug Components
+│   │   ├── layout/        # Layout Components
+│   │   ├── lazy/          # Lazy Loading
+│   │   ├── providers/     # Context Providers
+│   │   ├── tasks/         # Task Management Components
+│   │   └── ui/            # Reusable UI Components
+│   ├── contexts/          # React Contexts
+│   ├── hooks/             # Custom Hooks
+│   ├── lib/               # Utility Libraries
+│   ├── store/             # Zustand Store
+│   └── types/             # TypeScript Types
+├── public/                # Static Assets
+├── package.json           # Dependencies & Scripts
+├── next.config.ts         # Next.js Configuration
+├── netlify.toml           # Netlify Deployment Config
+└── README.md              # Project Documentation
+```
 
 ## דרישות מערכת
 
 ### פיתוח מקומי
 
-- Node.js 20+
-- npm או yarn
-- MongoDB Atlas (חינמי)
-- Redis (Cloud או מקומי)
+- **Node.js 18+** (מומלץ 20+)
+- **npm** או **yarn**
+- **Git**
 
 ### פריסה
 
-- Vercel (Frontend)
-- Render/Fly.io/Railway (Backend)
-- MongoDB Atlas (Database)
-- Redis Cloud (Cache)
+- **Netlify** (מומלץ) או **Vercel**
+- **Backend API** (נפרד)
+- **MongoDB Atlas** (Database)
 
 ## התקנה והרצה
 
@@ -176,28 +134,25 @@ npm install
 צור קובץ `.env.local`:
 
 ```env
-# Frontend
+# API Configuration
 NEXT_PUBLIC_API_BASE_URL=http://localhost:3001
 NEXT_PUBLIC_WS_URL=ws://localhost:3001
 NEXT_PUBLIC_TIMEZONE=Asia/Jerusalem
 
-# Backend (אם מריץ מקומי)
-DATABASE_URL="mongodb+srv://..."
-REDIS_URL="redis://..."
-SESSION_SECRET="your-secret-key"
-PEPPER="your-pepper-key"
-GOOGLE_CLIENT_ID=...
-GOOGLE_CLIENT_SECRET=...
-MAIL_HOST=smtp.sendgrid.net
-MAIL_USER=apikey
-MAIL_PASS=...
-ALLOWED_ORIGINS=http://localhost:3000
+# Backend URLs (Production)
+# NEXT_PUBLIC_API_BASE_URL=https://your-backend-api.com
+# NEXT_PUBLIC_WS_URL=wss://your-backend-api.com
 ```
 
 ### 4. הרצת הפרויקט
 
 ```bash
+# Development
 npm run dev
+
+# Production Build
+npm run build
+npm start
 ```
 
 הפרויקט יהיה זמין ב: http://localhost:3000
@@ -219,72 +174,160 @@ npm run type-check   # בדיקת TypeScript
 npm run check-all    # כל הבדיקות יחד
 ```
 
-## בדיקות
+## מבנה המסכים
 
-```bash
-# בדיקות יחידה
-npm test
+### 1. מסך לוגין (`/login`)
 
-# בדיקות E2E
-npm run test:e2e
+- כניסה עם שם משתמש וסיסמה
+- יצירת משתמש חדש (Sign-up)
+- הזדהות Google OAuth
+- "שכחתי סיסמה" (איפוס דרך אימייל)
 
-# בדיקות עומס
-npm run test:load
-```
+### 2. מסך הבית (`/`)
+
+**Header קבוע:**
+- לוגו
+- כפתור התנתקות
+- כפתור יצירת משימה חדשה
+
+**תוכן:**
+- הצגת כל המשימות הקיימות
+- פגינציה או Infinite Scroll
+
+### 3. תפריט ניווט
+
+- **המשימות שלי** (`/mine`) - משימות שיצרתי או שאני משויך אליהן
+- **סומנו בכוכב** (`/starred`) - משימות שסימנתי בכוכב (אישי)
+
+## מבנה כרטיס משימה
+
+### מצב הצגה
+
+- כותרת
+- תיאור
+- המשתמש שיצר
+- שעה ותאריך יצירה
+- נערך לאחרונה ע"י
+- כוכב (אישי)
+
+**בהובר (או ⋯ במובייל):**
+- אייקונים: מחיקה, שכפול
+
+### מצב עריכה (Modal/Popup)
+
+- כותרת (עריכה)
+- תיאור (עריכה)
+- כפתור שמירת שינויים
+- איקס לסגירה
+- אייקונים: שכפול, עריכה, מחיקה
+
 
 ## פריסה
 
-### Frontend (Vercel)
+### Netlify
 
-1. חיבור repository ל-Vercel
-2. הגדרת משתני סביבה
-3. Deploy אוטומטי על push ל-main
+1. **חיבור Repository:**
+   - היכנס ל-Netlify
+   - בחר "New site from Git"
+   - חבר את GitHub repository
 
-### Backend (Render/Fly/Railway)
+2. **הגדרות Build:**
+   ```toml
+   [build]
+     command = "npm run build"
+     publish = "out"
+   ```
 
-1. חיבור repository
-2. הגדרת משתני סביבה
-3. הגדרת Build Command: `npm run build`
-4. הגדרת Start Command: `npm start`
+3. **משתני סביבה:**
+   - הוסף את כל משתני הסביבה ב-Netlify Dashboard
+   - `NEXT_PUBLIC_API_BASE_URL`
+   - `NEXT_PUBLIC_WS_URL`
+   - `NEXT_PUBLIC_TIMEZONE`
+
+4. **Deploy:**
+   - כל push ל-main יגרום ל-deploy אוטומטי
+   - או deploy ידני דרך Netlify Dashboard
+
 
 ## אבטחה
 
-- **Session Cookies**: HttpOnly, Secure, SameSite=Lax
-- **סיסמאות**: Argon2id + Salt + Pepper
-- **CSRF Protection**: Tokens בטפסי credentials
-- **Rate Limiting**: הגבלת בקשות לפי IP ומשתמש
-- **Input Validation**: Zod validation בכל הקלט
-- **CSP**: Content Security Policy קשוח
+### Frontend Security
+
+- **Content Security Policy (CSP)** - מוגדר ב-netlify.toml
+- **X-Frame-Options** - מניעת Clickjacking
+- **X-XSS-Protection** - הגנה מפני XSS
+- **X-Content-Type-Options** - מניעת MIME sniffing
+- **Referrer-Policy** - בקרת referrer headers
+
+### Authentication
+
+- **Protected Routes** - כל הדפים מוגנים חוץ מלוגין
+- **Session Management** - ניהול סשן מאובטח
+- **Token Validation** - ולידציה של tokens
+- **Auto Logout** - התנתקות אוטומטית בפג תוקף
 
 ## ביצועים
+
+### Optimization
+
+- **Static Export** - בנייה סטטית ל-Netlify
+- **Code Splitting** - חלוקת קוד אוטומטית
+- **Lazy Loading** - טעינה עצלה של קומפוננטים
+- **Image Optimization** - אופטימיזציה של תמונות
+- **Bundle Analysis** - ניתוח גודל bundle
+
+### Performance Targets
 
 - **TTFB**: ≤ 600ms
 - **WebSocket Latency**: ≤ 500ms (p95)
 - **Error Rate**: < 0.5% (5xx)
 - **TTI**: ≤ 3s (p95 במובייל)
 
-## תרומה לפרויקט
+## פיתוח
 
-1. Fork הפרויקט
-2. צור branch חדש: `git checkout -b feature/amazing-feature`
-3. Commit השינויים: `git commit -m 'Add amazing feature'`
-4. Push ל-branch: `git push origin feature/amazing-feature`
-5. פתח Pull Request
+### Code Quality
 
-## רישיון
+- **ESLint** - בדיקת איכות קוד
+- **Prettier** - עיצוב קוד אחיד
+- **TypeScript** - טיפוסים חזקים
+- **Accessibility** - נגישות מלאה
 
-MIT License - ראה קובץ [LICENSE](LICENSE) לפרטים.
+### Testing
 
-## תמיכה
+```bash
+# בדיקות יחידה (לעתיד)
+npm test
 
-לשאלות ותמיכה:
+# בדיקות E2E (לעתיד)
+npm run test:e2e
 
-- פתח Issue ב-GitHub
-- צור Discussion ב-GitHub
-- פנה לצוות הפיתוח
+# בדיקות עומס (לעתיד)
+npm run test:load
+```
+
+## שינויים אחרונים
+
+### גרסה 0.1.0 (נוכחית)
+
+- ✅ Next.js 15.4.6 עם App Router
+- ✅ React 19.1.0
+- ✅ TypeScript 5 עם strict mode
+- ✅ Tailwind CSS 4
+- ✅ Zustand לניהול state
+- ✅ TanStack Query לניהול server state
+- ✅ Socket.io Client לעדכונים בזמן אמת
+- ✅ React Hook Form עם Zod validation
+- ✅ Headless UI לקומפוננטים נגישים
+- ✅ Netlify deployment עם static export
+- ✅ ESLint + Prettier + TypeScript checks
+- ✅ RTL support
+- ✅ Mobile responsive design
+- ✅ Accessibility (WCAG 2.2 AA)
 
 ---
 
-**גרסה:** 1.1  
-**תאריך:** 16.08.2025  
-**אזור זמן:** Asia/Jerusalem (UTC+03)
+**גרסה:** 0.1.0  
+**תאריך:** 2025  
+**אזור זמן:** Asia/Jerusalem (UTC+03)  
+**Node.js:** 18+  
+**Next.js:** 15.4.6
