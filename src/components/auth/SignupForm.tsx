@@ -21,7 +21,8 @@ export const SignupForm: React.FC<SignupFormProps> = ({ onSwitchToLogin }) => {
   const [generalError, setGeneralError] = useState<string | null>(null);
 
   const signupMutation = useSignup();
-  const { setUser } = useAuthStore();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { setUser } = useAuthStore((state: any) => state) as any;
 
   const {
     register,
@@ -42,11 +43,16 @@ export const SignupForm: React.FC<SignupFormProps> = ({ onSwitchToLogin }) => {
         name: data.name,
         email: data.email,
         password: data.password,
+        confirmPassword: data.confirmPassword,
       });
 
       if (result.data) {
         setUser(result.data.user);
-        router.push('/');
+        
+        // Use navigation after state update
+        requestAnimationFrame(() => {
+          router.push('/');
+        });
       } else if (result.error) {
         // Handle specific field errors
         if (result.error.field) {
@@ -58,7 +64,7 @@ export const SignupForm: React.FC<SignupFormProps> = ({ onSwitchToLogin }) => {
           setGeneralError(result.error.message);
         }
       }
-    } catch (_error) {
+    } catch {
       setGeneralError(ERROR_MESSAGES.NETWORK_ERROR);
     }
   };
