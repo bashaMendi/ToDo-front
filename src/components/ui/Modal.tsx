@@ -97,7 +97,7 @@ const Modal: React.FC<ModalProps> = ({
     >
       {/* Backdrop */}
       <div
-        className='fixed inset-0 bg-black bg-opacity-50 transition-opacity'
+        className='fixed inset-0 bg-black/20 transition-opacity'
         onClick={handleBackdropClick}
       />
 
@@ -144,7 +144,12 @@ const Modal: React.FC<ModalProps> = ({
   );
 
   // Use portal to render modal at the end of body
-  return createPortal(modalContent, document.body);
+  if (typeof window !== 'undefined') {
+    return createPortal(modalContent, document.body);
+  }
+  
+  // Fallback for SSR
+  return modalContent;
 };
 
 export { Modal };
