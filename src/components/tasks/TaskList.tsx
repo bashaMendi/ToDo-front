@@ -1,14 +1,14 @@
 'use client';
 
 import React, { memo, useCallback } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { TaskCard } from './TaskCard';
 import { TaskFilters } from './TaskFilters';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { Task, TaskFilters as TaskFiltersType } from '@/types';
 import { apiClient } from '@/lib/api';
 import { queryKeys } from '@/lib/query-client';
-import { useAuthStore } from '@/store';
+import { useSearchStore } from '@/store';
 import { usePerformance } from '@/hooks/usePerformance';
 
 interface TaskListProps {
@@ -26,8 +26,24 @@ export const TaskList = memo<TaskListProps>(({
 }) => {
   // Performance monitoring
   const { measureRender } = usePerformance('TaskList');
+  const queryClient = useQueryClient();
 
-  const { user } = useAuthStore();
+  // const { user } = useAuthStore();
+
+  // Get search query from global store
+  const { searchQuery } = useSearchStore();
+
+  // Combine filters with search query
+  const memoizedFilters = React.useMemo(() => {
+    const combinedFilters = {
+      ...filters,
+      search: searchQuery || undefined,
+    };
+    return combinedFilters;
+  }, [filters, searchQuery]);
+
+  // Log query key for debugging
+  const queryKey = queryKeys.tasks.all(memoizedFilters);
 
   // Fetch tasks
   const {
@@ -36,32 +52,82 @@ export const TaskList = memo<TaskListProps>(({
     error,
     refetch,
   } = useQuery({
-    queryKey: queryKeys.tasks.all(filters),
-    queryFn: () => apiClient.getTasks(filters as TaskFiltersType),
+    queryKey: queryKey,
+    queryFn: () => {
+      return apiClient.getTasks(memoizedFilters as TaskFiltersType);
+    },
     staleTime: 5 * 60 * 1000, // 5 minutes
     gcTime: 10 * 60 * 1000, // 10 minutes
+    enabled: true,
   });
 
   // Memoized handlers
-  const handleToggleStar = useCallback((taskId: string) => {
-    // Implementation for toggling star
-    console.log('Toggle star for task:', taskId);
-  }, []);
+  const handleToggleStar = useCallback(async (taskId: string) => {
+    try {
+      // Find the task to check if it's currently starred
+      const task = tasksResponse?.data?.items?.find(t => t.id === taskId);
+      if (!task) {
+        return;
+      }
 
-  const handleViewHistory = useCallback((taskId: string) => {
-    // Implementation for viewing history
-    console.log('View history for task:', taskId);
-  }, []);
+      // Optimistic update - immediately update the UI
+      const updatedTasks = tasksResponse?.data?.items?.map(t => 
+        t.id === taskId ? { ...t, isStarred: !t.isStarred } : t
+      );
+      
+      // Update the query cache optimistically for all tasks queries
+      if (tasksResponse?.data) {
+        // Update current query
+        queryClient.setQueryData(queryKey, {
+          ...tasksResponse,
+          data: {
+            ...tasksResponse.data,
+            items: updatedTasks
+          }
+        });
+        
+        // Update all other tasks queries with the same task
+        queryClient.setQueriesData(
+          { queryKey: ['tasks'] },
+          (oldData: unknown) => {
+            const data = oldData as { data?: { items?: Task[] } };
+            if (data?.data?.items) {
+              return {
+                ...data,
+                data: {
+                  ...data.data,
+                  items: data.data.items.map((t: Task) => 
+                    t.id === taskId ? { ...t, isStarred: !t.isStarred } : t
+                  )
+                }
+              };
+            }
+            return oldData;
+          }
+        );
+      }
 
-  const handleFiltersChange = useCallback((newFilters: TaskFiltersType) => {
-    // Implementation for filters change
-    console.log('Filters changed:', newFilters);
-  }, []);
+      // Call API to toggle star
+      if (task.isStarred) {
+        await apiClient.removeStar(taskId);
+      } else {
+        await apiClient.addStar(taskId);
+      }
 
-  const handleSearch = useCallback((query: string) => {
-    // Implementation for search
-    console.log('Search query:', query);
-  }, []);
+      // Invalidate all tasks queries to update all pages
+      await queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      
+    } catch {
+      // Revert optimistic update on error
+      await queryClient.invalidateQueries({ queryKey: ['tasks'] });
+    }
+  }, [tasksResponse, queryClient, queryKey]);
+
+
+
+  // Filters are handled globally now
+
+  // Search is handled globally by useSearch hook
 
   // Measure render performance
   React.useEffect(() => {
@@ -69,6 +135,9 @@ export const TaskList = memo<TaskListProps>(({
     return cleanup;
   }, [measureRender, tasksResponse]);
 
+
+
+  // Show loading only when fetching data
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -95,11 +164,14 @@ export const TaskList = memo<TaskListProps>(({
 
   return (
     <div className="space-y-6">
-      <TaskFilters
-        filters={filters as TaskFiltersType}
-        onFiltersChange={handleFiltersChange}
-        onSearch={handleSearch}
-      />
+      {/* TaskFilters - Hidden but functional */}
+      <div style={{ display: 'none' }}>
+        <TaskFilters
+          filters={memoizedFilters}
+          onFiltersChange={() => {}} // No-op since filters are handled globally
+          onSearch={() => {}} // No-op since search is handled globally
+        />
+      </div>
 
       {tasks.length === 0 ? (
         <div className="text-center py-12">
@@ -115,7 +187,6 @@ export const TaskList = memo<TaskListProps>(({
               onDelete={onDeleteTask || (() => {})}
               onDuplicate={onDuplicateTask || (() => {})}
               onToggleStar={handleToggleStar}
-              onViewHistory={handleViewHistory}
             />
           ))}
         </div>
