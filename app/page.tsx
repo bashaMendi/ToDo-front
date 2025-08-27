@@ -1,55 +1,80 @@
 'use client';
 
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import React from 'react';
 import { Header } from '@/components/layout/Header';
 import { TaskList } from '@/components/tasks/TaskList';
 import { TaskModal } from '@/components/tasks/TaskModal';
-
-import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
-import { useAuthStore } from '@/store';
+import { withAuth } from '@/components/auth/ProtectedRoute';
 import { usePagePerformance } from '@/hooks/usePerformance';
+import { useUIStore } from '@/store';
+import { useQueryClient } from '@tanstack/react-query';
+import { Task } from '@/types';
+import { apiClient } from '@/lib/api';
 
-export default function HomePage() {
-  const router = useRouter();
-  const { user, isAuthenticated, isLoading } = useAuthStore();
-
+function HomePage() {
   // Performance monitoring
   usePagePerformance('HomePage');
+  
+  const { modal, openModal, closeModal } = useUIStore((state: any) => state) as any;
+  const queryClient = useQueryClient();
 
-  useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
-      router.push('/login');
+  const handleCreateTask = () => {
+    openModal('create');
+  };
+
+  const handleEditTask = (task: Task) => {
+    openModal('edit', task.id);
+  };
+
+  const handleDeleteTask = (taskId: string) => {
+    openModal('delete', taskId);
+  };
+
+  const handleDuplicateTask = async (taskId: string) => {
+    try {
+      // Call the duplicate API
+      const response = await apiClient.duplicateTask(taskId);
+      
+      if (response.data) {
+        // Invalidate all tasks queries to update all pages
+        await queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      }
+    } catch {
+      // Silent fail for duplicate task
     }
-  }, [isAuthenticated, isLoading, router]);
+  };
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <LoadingSpinner size="lg" text="טוען..." />
-      </div>
-    );
-  }
+  // Search is handled globally by useSearch hook
 
-  if (!isAuthenticated || !user) {
-    return null; // Will redirect to login
-  }
+
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <Header />
+      <Header 
+        onCreateTask={handleCreateTask}
+      />
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-gray-900 mb-2">לוח משימות משותף</h1>
           <p className="text-lg text-gray-600">ניהול משימות משותף עם עדכונים בזמן אמת</p>
         </div>
-        <TaskList />
+        <TaskList 
+          filters={React.useMemo(() => ({ 
+            context: 'all'
+          }), [])}
+          onEditTask={handleEditTask}
+          onDeleteTask={handleDeleteTask}
+          onDuplicateTask={handleDuplicateTask}
+        />
       </main>
       <TaskModal 
-        isOpen={false}
-        onClose={() => {}}
-        mode="create"
+        isOpen={modal.isOpen && (modal.type === 'create' || modal.type === 'edit' || modal.type === 'delete')}
+        onClose={closeModal}
+        taskId={modal.taskId}
+        mode={modal.type === 'create' ? 'create' : modal.type === 'delete' ? 'delete' : 'edit'}
       />
     </div>
   );
 }
+
+export default withAuth(HomePage);
