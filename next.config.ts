@@ -18,8 +18,6 @@ const nextConfig: NextConfig = {
     NEXT_PUBLIC_WS_URL: process.env.NEXT_PUBLIC_WS_URL,
     NEXT_PUBLIC_TIMEZONE: process.env.NEXT_PUBLIC_TIMEZONE,
   },
-  
-  // Experimental features (removed appDir as it's now stable in Next.js 15)
 };
 
 export default nextConfig;
