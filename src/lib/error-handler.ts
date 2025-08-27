@@ -49,6 +49,11 @@ class ErrorHandler {
   handleError(error: unknown, context: Partial<ErrorContext> = {}): ErrorInfo {
     const errorInfo = this.createErrorInfo(error, context);
     
+    // Skip LOW severity errors completely
+    if (errorInfo.severity === ErrorSeverity.LOW) {
+      return errorInfo;
+    }
+    
     // Add to queue for processing
     this.errorQueue.push(errorInfo);
     
@@ -98,9 +103,9 @@ class ErrorHandler {
     let retryable = false;
 
     // Determine error type and severity
-    if (error.name === 'NetworkError' || error.message.includes('fetch')) {
+    if (error.name === 'NetworkError' || error.message.includes('fetch') || error.message === 'Failed to fetch') {
       type = ErrorType.NETWORK;
-      severity = ErrorSeverity.HIGH;
+      severity = ErrorSeverity.LOW; // Changed from HIGH to LOW to suppress user messages
       retryable = true;
     } else if (error.name === 'TypeError') {
       type = ErrorType.VALIDATION;
@@ -127,6 +132,19 @@ class ErrorHandler {
     let retryable = false;
     let message = error.message || 'אירעה שגיאה בשרת';
 
+    // Special handling for 401 on /auth/me - this is expected when user is not logged in
+    if (error.status === 401 && context.url?.includes('/auth/me')) {
+      return {
+        type: ErrorType.AUTHENTICATION,
+        severity: ErrorSeverity.LOW,
+        message: 'משתמש לא מחובר',
+        code: 401,
+        context,
+        originalError: error,
+        retryable: false,
+      };
+    }
+
     switch (error.status) {
       case 400:
         type = ErrorType.VALIDATION;
@@ -135,7 +153,7 @@ class ErrorHandler {
         break;
       case 401:
         type = ErrorType.AUTHENTICATION;
-        severity = ErrorSeverity.HIGH;
+        severity = ErrorSeverity.LOW; // Changed from HIGH to LOW
         message = 'יש להתחבר מחדש';
         retryable = true;
         break;
@@ -148,6 +166,7 @@ class ErrorHandler {
         type = ErrorType.NOT_FOUND;
         severity = ErrorSeverity.LOW;
         message = 'המשאב המבוקש לא נמצא';
+        // Don't show 404 errors to user as they're often expected
         break;
       case 409:
         type = ErrorType.VALIDATION;
@@ -159,6 +178,12 @@ class ErrorHandler {
         type = ErrorType.NETWORK;
         severity = ErrorSeverity.MEDIUM;
         message = 'יותר מדי בקשות, נסה שוב מאוחר יותר';
+        retryable = true;
+        break;
+      case 0: // Network error (server not available)
+        type = ErrorType.NETWORK;
+        severity = ErrorSeverity.LOW;
+        message = 'השרת לא זמין כרגע';
         retryable = true;
         break;
       case 500:
@@ -191,10 +216,20 @@ class ErrorHandler {
 
   // Show user-friendly message
   private showUserMessage(errorInfo: ErrorInfo): void {
-    const { severity, message, retryable } = errorInfo;
+    const { severity, message, retryable, type } = errorInfo;
 
     // Don't show low severity errors to user
     if (severity === ErrorSeverity.LOW) {
+      return;
+    }
+
+    // Don't show 404 errors to user as they're often expected
+    if (type === ErrorType.NOT_FOUND) {
+      return;
+    }
+
+    // Don't show authentication errors to user (they're handled by the app)
+    if (type === ErrorType.AUTHENTICATION) {
       return;
     }
 
@@ -242,8 +277,8 @@ class ErrorHandler {
           await this.logError(errorInfo);
         }
       }
-    } catch (error) {
-      console.error('Error processing error queue:', error);
+    } catch {
+      // Silent fail for error queue processing
     } finally {
       this.isProcessing = false;
     }
@@ -251,13 +286,14 @@ class ErrorHandler {
 
   // Log error to external service (in production)
   private async logError(errorInfo: ErrorInfo): Promise<void> {
+    // Don't log LOW severity errors (like 401 authentication errors)
+    if (errorInfo.severity === ErrorSeverity.LOW) {
+      return;
+    }
+
     // In development, just log to console
     if (process.env.NODE_ENV === 'development') {
-      console.group(`🚨 ${errorInfo.type} Error (${errorInfo.severity})`);
-      console.error('Message:', errorInfo.message);
-      console.error('Context:', errorInfo.context);
-      console.error('Original Error:', errorInfo.originalError);
-      console.groupEnd();
+      // Silent logging in development
       return;
     }
 
@@ -266,17 +302,16 @@ class ErrorHandler {
       // Example: Send to Sentry, LogRocket, etc.
       // await errorTrackingService.captureException(errorInfo);
       
-      // For now, just log to console
-      console.error('Production Error:', errorInfo);
-    } catch (error) {
-      console.error('Failed to log error:', error);
+      // Silent error logging in production
+    } catch {
+      // Silent fail for error logging
     }
   }
 
   // Retry last action (placeholder)
   private retryLastAction(): void {
     // This would be implemented based on the specific action that failed
-    console.log('Retrying last action...');
+    // Silent retry action
   }
 
   // Get error statistics
