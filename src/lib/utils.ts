@@ -48,8 +48,7 @@ export function formatDate(
     } else {
       return `${day}/${month}/${year}`;
     }
-  } catch (error) {
-    console.error('Error formatting date:', error);
+  } catch {
     return 'תאריך לא תקין';
   }
 }
@@ -147,8 +146,7 @@ export function getLocalStorage<T>(key: string, defaultValue: T): T {
   try {
     const item = window.localStorage.getItem(key);
     return item ? JSON.parse(item) : defaultValue;
-  } catch (error) {
-    console.error('Error reading from localStorage:', error);
+  } catch {
     return defaultValue;
   }
 }
@@ -158,8 +156,8 @@ export function setLocalStorage<T>(key: string, value: T): void {
 
   try {
     window.localStorage.setItem(key, JSON.stringify(value));
-  } catch (error) {
-    console.error('Error writing to localStorage:', error);
+  } catch {
+    // Silent fail for localStorage write
   }
 }
 
@@ -168,8 +166,8 @@ export function removeLocalStorage(key: string): void {
 
   try {
     window.localStorage.removeItem(key);
-  } catch (error) {
-    console.error('Error removing from localStorage:', error);
+  } catch {
+    // Silent fail for localStorage remove
   }
 }
 
