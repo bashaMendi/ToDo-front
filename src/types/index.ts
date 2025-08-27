@@ -30,6 +30,7 @@ export interface ApiResponse<T> {
     requestId: string;
     field?: string;
   };
+  sessionExpiry?: number; // Unix timestamp when session expires
 }
 
 export interface PaginatedResponse<T> {
@@ -49,6 +50,7 @@ export interface SignupCredentials {
   email: string;
   name: string;
   password: string;
+  confirmPassword: string;
 }
 
 export interface AuthResponse {
@@ -125,7 +127,7 @@ export interface TaskFormData {
 }
 
 // UI State types
-export interface UIState {
+export interface UIComponentState {
   isLoading: boolean;
   error: string | null;
   success: string | null;
@@ -134,11 +136,16 @@ export interface UIState {
 export interface ModalState {
   isOpen: boolean;
   taskId?: string;
-  type: 'create' | 'edit' | 'history' | null;
+  type: 'create' | 'edit' | 'delete' | 'history' | null;
 }
 
 // Navigation types
-export type NavigationItem = 'home' | 'mine' | 'starred';
+export interface NavigationItem {
+  id: 'home' | 'mine' | 'starred';
+  label: string;
+  href: string;
+  icon: string;
+}
 
 // Export types
 export type ExportFormat = 'csv' | 'json' | 'excel';
