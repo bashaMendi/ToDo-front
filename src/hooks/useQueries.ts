@@ -21,12 +21,21 @@ export const useTask = (id: string) => {
   return useQuery({
     queryKey: queryKeys.tasks.byId(id),
     queryFn: () => apiClient.getTask(id),
-    enabled: !!id,
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    enabled: !!id && id.length > 0,
+    // Use default staleTime from query client (5 minutes)
+    // Use default gcTime from query client (10 minutes)
+    retry: (failureCount, error) => {
+      // Don't retry 404 errors (task not found)
+      if (error && typeof error === 'object' && 'code' in error && error.code === 404) {
+        return false;
+      }
+      // Use default retry logic (3 attempts)
+      return failureCount < 3;
+    },
   });
 };
 
-export const useStarredTasks = (filters: TaskFilters = {}) => {
+export const useStarredTasks = () => {
   return useQuery({
     queryKey: queryKeys.tasks.starred,
     queryFn: () => apiClient.getStarredTasks(),
@@ -34,9 +43,9 @@ export const useStarredTasks = (filters: TaskFilters = {}) => {
   });
 };
 
-export const useMyTasks = (filters: TaskFilters = {}) => {
+export const useMyTasks = () => {
   return useQuery({
-    queryKey: queryKeys.tasks.mine(filters),
+    queryKey: queryKeys.tasks.mine({}),
     queryFn: () => apiClient.getMyTasks(),
     staleTime: 2 * 60 * 1000, // 2 minutes
   });
@@ -49,9 +58,15 @@ export const useCreateTask = () => {
   return useMutation({
     mutationFn: (data: CreateTaskData) => apiClient.createTask(data),
     onSuccess: newTask => {
-      // Invalidate tasks lists
-      queryClient.invalidateQueries({ queryKey: queryKeys.tasks.all() });
-      queryClient.invalidateQueries({ queryKey: queryKeys.tasks.mine() });
+      // Invalidate ALL tasks queries (with and without filters)
+      queryClient.invalidateQueries({ 
+        queryKey: ['tasks', 'all'],
+        exact: false 
+      });
+      queryClient.invalidateQueries({ 
+        queryKey: ['tasks', 'mine'],
+        exact: false 
+      });
       queryClient.invalidateQueries({ queryKey: queryKeys.tasks.starred });
 
       // Add the new task to cache
@@ -76,17 +91,72 @@ export const useUpdateTask = () => {
       data: UpdateTaskData;
       version?: number;
     }) => apiClient.updateTask(id, data, version),
-    onSuccess: (updatedTask, variables) => {
-      // Update the specific task in cache
-      queryClient.setQueryData(queryKeys.tasks.byId(variables.id), updatedTask);
-
-      // Invalidate tasks lists to refetch
-      queryClient.invalidateQueries({ queryKey: queryKeys.tasks.all() });
-      queryClient.invalidateQueries({ queryKey: queryKeys.tasks.mine() });
-      queryClient.invalidateQueries({ queryKey: queryKeys.tasks.starred });
+    
+    // Optimistic update - עדכון מיידי לפני השרת
+    onMutate: async ({ id, data }) => {
+      // Cancel any outgoing refetches
+      await queryClient.cancelQueries({ queryKey: queryKeys.tasks.byId(id) });
+      await queryClient.cancelQueries({ queryKey: ['tasks'], exact: false });
+      
+      // Snapshot the previous value
+      const previousTask = queryClient.getQueryData(queryKeys.tasks.byId(id));
+      const previousTasks = queryClient.getQueriesData({ queryKey: ['tasks'], exact: false });
+      
+      // Optimistically update the task
+      queryClient.setQueryData(queryKeys.tasks.byId(id), (old: unknown) => {
+        if (!old || typeof old !== 'object') return old;
+        const oldData = old as { data?: Record<string, unknown> };
+        const updatedData = { ...oldData?.data, ...data };
+        return {
+          ...oldData,
+          data: updatedData
+        };
+      });
+      
+      // Optimistically update all task lists
+      queryClient.setQueriesData(
+        { queryKey: ['tasks'], exact: false },
+        (oldData: unknown) => {
+          const data = oldData as { data?: { items?: Array<{ id: string }> } };
+          if (!data?.data?.items) return oldData;
+          
+          const updatedItems = data.data.items.map((task) => 
+            task.id === id ? { ...task, ...data } : task
+          );
+          
+          return {
+            ...data,
+            data: { ...data.data, items: updatedItems }
+          };
+        }
+      );
+      
+      // Return context with the snapshotted value
+      return { previousTask, previousTasks };
+    },
+    
+    // If the mutation fails, use the context returned from onMutate to roll back
+    onError: (err, variables, context) => {
+      if (context?.previousTask) {
+        queryClient.setQueryData(queryKeys.tasks.byId(variables.id), context.previousTask);
+      }
+      
+      if (context?.previousTasks) {
+        context.previousTasks.forEach(([queryKey, data]) => {
+          queryClient.setQueryData(queryKey, data);
+        });
+      }
+    },
+    
+    // Always refetch after error or success
+    onSettled: (data, error, variables) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.tasks.byId(variables.id) });
+      queryClient.invalidateQueries({ queryKey: ['tasks'], exact: false });
     },
   });
 };
+
+
 
 export const useDeleteTask = () => {
   const queryClient = useQueryClient();
@@ -94,13 +164,43 @@ export const useDeleteTask = () => {
   return useMutation({
     mutationFn: (id: string) => apiClient.deleteTask(id),
     onSuccess: (_, taskId) => {
-      // Remove from cache
+      // Remove the specific task from cache immediately
       queryClient.removeQueries({ queryKey: queryKeys.tasks.byId(taskId) });
 
-      // Invalidate lists
-      queryClient.invalidateQueries({ queryKey: queryKeys.tasks.all() });
-      queryClient.invalidateQueries({ queryKey: queryKeys.tasks.mine() });
-      queryClient.invalidateQueries({ queryKey: queryKeys.tasks.starred });
+      // Update all task lists by removing the deleted task
+      queryClient.setQueriesData(
+        { queryKey: ['tasks'], exact: false },
+        (oldData: unknown) => {
+          const data = oldData as { data?: { items?: Array<{ id: string }> } };
+          if (!data?.data?.items) return oldData;
+          
+          const filteredItems = data.data.items.filter((task) => task.id !== taskId);
+          
+          return {
+            ...data,
+            data: {
+              ...data.data,
+              items: filteredItems
+            }
+          };
+        }
+      );
+
+      // Also update starred tasks if needed
+      queryClient.setQueriesData(
+        { queryKey: queryKeys.tasks.starred },
+        (oldData: unknown) => {
+          const data = oldData as { data?: Array<{ id: string }> };
+          if (!data?.data) return oldData;
+          
+          const filteredData = data.data.filter((task) => task.id !== taskId);
+          
+          return {
+            ...data,
+            data: filteredData
+          };
+        }
+      );
     },
   });
 };
@@ -111,9 +211,15 @@ export const useDuplicateTask = () => {
   return useMutation({
     mutationFn: (id: string) => apiClient.duplicateTask(id),
     onSuccess: duplicatedTask => {
-      // Invalidate tasks lists
-      queryClient.invalidateQueries({ queryKey: queryKeys.tasks.all() });
-      queryClient.invalidateQueries({ queryKey: queryKeys.tasks.mine() });
+      // Invalidate ALL tasks queries (with and without filters)
+      queryClient.invalidateQueries({ 
+        queryKey: ['tasks', 'all'],
+        exact: false 
+      });
+      queryClient.invalidateQueries({ 
+        queryKey: ['tasks', 'mine'],
+        exact: false 
+      });
 
       // Add the duplicated task to cache
       queryClient.setQueryData(
@@ -132,8 +238,14 @@ export const useAssignSelfToTask = () => {
     onSuccess: (_, taskId) => {
       // Invalidate relevant queries
       queryClient.invalidateQueries({ queryKey: queryKeys.tasks.byId(taskId) });
-      queryClient.invalidateQueries({ queryKey: queryKeys.tasks.all() });
-      queryClient.invalidateQueries({ queryKey: queryKeys.tasks.mine() });
+      queryClient.invalidateQueries({ 
+        queryKey: ['tasks', 'all'],
+        exact: false 
+      });
+      queryClient.invalidateQueries({ 
+        queryKey: ['tasks', 'mine'],
+        exact: false 
+      });
     },
   });
 };
@@ -225,11 +337,13 @@ export const useSignup = () => {
       name,
       email,
       password,
+      confirmPassword,
     }: {
       name: string;
       email: string;
       password: string;
-    }) => apiClient.signup({ name, email, password }),
+      confirmPassword: string;
+    }) => apiClient.signup({ name, email, password, confirmPassword }),
     onSuccess: () => {
       // Invalidate user data
       queryClient.invalidateQueries({ queryKey: queryKeys.auth.me });
