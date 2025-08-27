@@ -1,7 +1,7 @@
 import React, { memo, useCallback, useMemo } from 'react';
 import { format } from 'date-fns';
 import { he } from 'date-fns/locale';
-import { Star, Edit, Trash2, Copy, History, User } from 'lucide-react';
+import { Star, Edit, Trash2, Copy, User } from 'lucide-react';
 import { Task } from '@/types';
 import { Button } from '@/components/ui/Button';
 import { cn } from '@/lib/utils';
@@ -12,7 +12,6 @@ interface TaskCardProps {
   onDelete: (taskId: string) => void;
   onDuplicate: (taskId: string) => void;
   onToggleStar: (taskId: string) => void;
-  onViewHistory: (taskId: string) => void;
   className?: string;
 }
 
@@ -22,7 +21,6 @@ export const TaskCard = memo<TaskCardProps>(({
   onDelete,
   onDuplicate,
   onToggleStar,
-  onViewHistory,
   className,
 }) => {
   // Memoize formatted dates
@@ -42,7 +40,6 @@ export const TaskCard = memo<TaskCardProps>(({
   const handleDelete = useCallback(() => onDelete(task.id), [onDelete, task.id]);
   const handleDuplicate = useCallback(() => onDuplicate(task.id), [onDuplicate, task.id]);
   const handleToggleStar = useCallback(() => onToggleStar(task.id), [onToggleStar, task.id]);
-  const handleViewHistory = useCallback(() => onViewHistory(task.id), [onViewHistory, task.id]);
 
   return (
     <div className={cn(
@@ -97,15 +94,7 @@ export const TaskCard = memo<TaskCardProps>(({
             <Edit className="h-4 w-4 mr-1" />
             ערוך
           </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleViewHistory}
-            className="text-gray-600 hover:text-gray-700"
-          >
-            <History className="h-4 w-4 mr-1" />
-            היסטוריה
-          </Button>
+
         </div>
         <div className="flex items-center gap-2">
           <Button
