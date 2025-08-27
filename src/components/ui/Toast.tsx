@@ -69,10 +69,10 @@ export const useToast = () => {
 };
 
 // Convenience toast function
-export const toast = (props: Omit<ToastProps, 'id' | 'onClose'>) => {
+export const toast = (_props: Omit<ToastProps, 'id' | 'onClose'>) => {
   // This will be used by the error handler
   // In a real implementation, you'd access the toast context
-  console.log('Toast:', props);
+  // Silent toast function for production
 };
 
 const Toast: React.FC<ToastProps> = ({
@@ -170,7 +170,7 @@ const Toast: React.FC<ToastProps> = ({
           className='flex-shrink-0 p-1 rounded hover:bg-black hover:bg-opacity-10 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-transparent'
           aria-label='סגור'
         >
-          <X className='w-4 h-4' />
+          <X className='w-4 w-4' />
         </button>
       </div>
     </div>
