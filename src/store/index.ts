@@ -1,396 +1,829 @@
 import { create } from 'zustand';
-import { devtools, persist } from 'zustand/middleware';
+import { devtools } from 'zustand/middleware';
 import {
   User,
   Task,
   TaskFilters,
   ModalState,
-  UIState,
   NavigationItem,
+  CreateTaskData,
+  UpdateTaskData,
+  ExportFormat,
 } from '@/types';
 import { apiClient } from '@/lib/api';
-import { wsClient } from '@/lib/websocket';
+import { ensureWebSocketInitialized, resetWebSocketClient } from '@/lib/websocket';
 
 // Auth store
 interface AuthState {
   user: User | null;
   isLoading: boolean;
   isAuthenticated: boolean;
+  error: string | null;
+  sessionTimeout: number | null;
+  isInitialized: boolean;
+  isLoggingOut: boolean;
 
   // Actions
   login: (email: string, password: string) => Promise<boolean>;
-  signup: (name: string, email: string, password: string) => Promise<boolean>;
+  signup: (name: string, email: string, password: string, confirmPassword: string) => Promise<boolean>;
   logout: () => Promise<void>;
   checkAuth: () => Promise<void>;
   setUser: (user: User | null) => void;
+  clearError: () => void;
+  refreshSession: () => Promise<boolean>;
+  setupSessionTimeout: (expiryTime?: number) => void;
+  clearSessionTimeout: () => void;
+  getSessionStatus: () => {
+    sessionTimeout: number | null;
+    timeLeft: number;
+    timeLeftMinutes: number;
+    isExpired: boolean;
+  };
 }
 
-export const useAuthStore = create<AuthState>()(
+export const useAuthStore = create<AuthState>()
   devtools(
-    persist(
-      (set, get) => ({
-        user: null,
-        isLoading: false,
-        isAuthenticated: false,
+    (set, get) => ({
+      user: null,
+      isLoading: false,
+      isAuthenticated: false,
+      error: null,
+      sessionTimeout: null,
+      isInitialized: false,
+      isLoggingOut: false,
 
-        login: async (email: string, password: string) => {
-          set({ isLoading: true });
-          try {
-            const response = await apiClient.login({ email, password });
-            if (response.data) {
+      login: async (email: string, password: string) => {
+        set({ isLoading: true, error: null });
+        try {
+          const response = await apiClient.login({ email, password });
+          
+          if (response.data) {
+            const user = response.data.user || response.data;
+            
+            if (user && (user as any).id) {
               set({
-                user: response.data.user,
+                user,
                 isAuthenticated: true,
                 isLoading: false,
+                error: null,
+                isInitialized: true,
               });
 
-              // Connect to WebSocket and join user room
-              wsClient.connect();
-              wsClient.joinUserRoom(response.data.user.id);
+              (get() as any).setupSessionTimeout(response.sessionExpiry);
+
+              ensureWebSocketInitialized().then((client) => {
+                client.connect().catch(() => {
+                  // Silent fail for WebSocket connection
+                });
+                client.joinUserRoom((user as any).id);
+              }).catch(() => {
+                // Silent fail for WebSocket initialization
+              });
 
               return true;
-            } else {
-              set({ isLoading: false });
-              return false;
-            }
-          } catch (_error) {
-            set({ isLoading: false });
-            return false;
-          }
-        },
-
-        signup: async (name: string, email: string, password: string) => {
-          set({ isLoading: true });
-          try {
-            const response = await apiClient.signup({ name, email, password });
-            if (response.data) {
-              set({
-                user: response.data.user,
-                isAuthenticated: true,
-                isLoading: false,
-              });
-
-              // Connect to WebSocket and join user room
-              wsClient.connect();
-              wsClient.joinUserRoom(response.data.user.id);
-
-              return true;
-            } else {
-              set({ isLoading: false });
-              return false;
-            }
-          } catch (_error) {
-            set({ isLoading: false });
-            return false;
-          }
-        },
-
-        logout: async () => {
-          try {
-            await apiClient.logout();
-          } catch (_error) {
-            console.error('Logout error:', _error);
-          } finally {
-            // Disconnect from WebSocket
-            const user = get().user;
-            if (user) {
-              wsClient.leaveUserRoom(user.id);
-            }
-            wsClient.disconnect();
-
-            set({
-              user: null,
-              isAuthenticated: false,
-              isLoading: false,
-            });
-          }
-        },
-
-        checkAuth: async () => {
-          set({ isLoading: true });
-          try {
-            const response = await apiClient.getCurrentUser();
-            if (response.data) {
-              set({
-                user: response.data,
-                isAuthenticated: true,
-                isLoading: false,
-              });
-
-              // Connect to WebSocket and join user room
-              wsClient.connect();
-              wsClient.joinUserRoom(response.data.id);
             } else {
               set({
                 user: null,
                 isAuthenticated: false,
                 isLoading: false,
+                error: 'נתוני משתמש לא תקינים',
+                isInitialized: true,
               });
+              return false;
             }
-          } catch (_error) {
+          } else if (response.error) {
+            const errorMessage = response.error.message || 'שגיאה בהתחברות';
+            set({ 
+              isLoading: false, 
+              error: errorMessage,
+              isInitialized: true 
+            });
+            return false;
+          } else {
+            set({ 
+              isLoading: false, 
+              error: 'שגיאה לא ידועה בהתחברות',
+              isInitialized: true 
+            });
+            return false;
+          }
+        } catch {
+          set({ 
+            isLoading: false, 
+            error: 'שגיאת רשת - נסה שוב',
+            isInitialized: true 
+          });
+          return false;
+        }
+      },
+
+      signup: async (name: string, email: string, password: string, confirmPassword: string) => {
+        set({ isLoading: true, error: null });
+        try {
+          const response = await apiClient.signup({ name, email, password, confirmPassword });
+          if (response.data) {
+            const { user } = response.data;
+            set({
+              user,
+              isAuthenticated: true,
+              isLoading: false,
+              error: null,
+              isInitialized: true,
+            });
+
+            get().setupSessionTimeout(response.sessionExpiry);
+
+            ensureWebSocketInitialized().then((client) => {
+              client.connect().catch(() => {
+                // Silent fail for WebSocket connection
+              });
+              client.joinUserRoom(user.id);
+            }).catch(() => {
+              // Silent fail for WebSocket initialization
+            });
+
+            return true;
+          } else {
+            const errorMessage = response.error?.message || 'שגיאה ברישום';
+            set({ 
+              isLoading: false, 
+              error: errorMessage,
+              isInitialized: true 
+            });
+            return false;
+          }
+        } catch {
+          set({ 
+            isLoading: false, 
+            error: 'שגיאת רשת - נסה שוב',
+            isInitialized: true 
+          });
+          return false;
+        }
+      },
+
+      logout: async () => {
+        const currentUser = get().user;
+        const currentState = get();
+        
+        if (currentState.isLoggingOut) {
+          return;
+        }
+        
+        set({ isLoggingOut: true });
+        
+        try {
+          if (currentState.isAuthenticated || currentUser) {
+            try {
+              await apiClient.logout();
+            } catch {
+              // Ignore logout errors
+            }
+          }
+
+          if (currentUser) {
+            ensureWebSocketInitialized().then((client) => {
+              client.leaveUserRoom(currentUser.id);
+              client.disconnect();
+            }).catch(() => {
+              // Silent fail for WebSocket cleanup
+            });
+          }
+
+          resetWebSocketClient();
+          get().clearSessionTimeout();
+
+          set({
+            user: null,
+            isAuthenticated: false,
+            error: null,
+            sessionTimeout: null,
+            isLoggingOut: false,
+          });
+        } catch {
+          set({
+            user: null,
+            isAuthenticated: false,
+            error: null,
+            sessionTimeout: null,
+            isLoggingOut: false,
+          });
+        }
+      },
+
+      checkAuth: async () => {
+        const state = get();
+        if (state.isLoading) {
+          return;
+        }
+        
+        set({ isLoading: true, error: null });
+        
+        if (state.user && !state.isInitialized) {
+          set({ isAuthenticated: true });
+        }
+        
+        try {
+          const response = await apiClient.getCurrentUser();
+          
+          if (response.data) {
+            set({
+              user: response.data,
+              isAuthenticated: true,
+              isLoading: false,
+              error: null,
+              isInitialized: true,
+            });
+
+            get().setupSessionTimeout(response.sessionExpiry);
+
+            ensureWebSocketInitialized().then((client) => {
+              client.connect().catch(() => {
+                // Silent fail for WebSocket connection
+              });
+              client.joinUserRoom(response.data.id);
+            }).catch(() => {
+              // Silent fail for WebSocket initialization
+            });
+          } else if (response.error) {
             set({
               user: null,
               isAuthenticated: false,
               isLoading: false,
+              error: null,
+              isInitialized: true,
+            });
+          } else {
+            set({
+              user: null,
+              isAuthenticated: false,
+              isLoading: false,
+              error: 'שגיאה לא ידועה בבדיקת התחברות',
+              isInitialized: true,
             });
           }
-        },
-
-        setUser: (user: User | null) => {
+        } catch {
           set({
-            user,
-            isAuthenticated: !!user,
+            user: null,
+            isAuthenticated: false,
+            isLoading: false,
+            error: 'שגיאת רשת בבדיקת התחברות',
+            isInitialized: true,
           });
-        },
-      }),
-      {
-        name: 'auth-storage',
-        partialize: state => ({ user: state.user }),
-      }
-    )
-  )
-);
+        }
+      },
 
-// Tasks store
-interface TasksState {
+      setUser: (user: User | null) => {
+        set({ user, isAuthenticated: !!user });
+      },
+
+      clearError: () => {
+        set({ error: null });
+      },
+
+      refreshSession: async (): Promise<boolean> => {
+        try {
+          const response = await apiClient.refreshSession();
+          if (response.data) {
+            set({ user: response.data });
+            get().setupSessionTimeout(response.sessionExpiry);
+            return true;
+          }
+          return false;
+        } catch {
+          return false;
+        }
+      },
+
+      setupSessionTimeout: (expiryTime?: number) => {
+        get().clearSessionTimeout();
+        
+        if (!expiryTime) return;
+        
+        const timeout = setTimeout(() => {
+          get().logout();
+        }, expiryTime - Date.now());
+        
+        set({ sessionTimeout: timeout as unknown as number });
+      },
+
+      clearSessionTimeout: () => {
+        const { sessionTimeout } = get();
+        if (sessionTimeout) {
+          clearTimeout(sessionTimeout as unknown as NodeJS.Timeout);
+          set({ sessionTimeout: null });
+        }
+      },
+
+      getSessionStatus: () => {
+        const { sessionTimeout } = get();
+        if (!sessionTimeout) {
+          return {
+            sessionTimeout: null,
+            timeLeft: 0,
+            timeLeftMinutes: 0,
+            isExpired: true,
+          };
+        }
+        
+        const timeLeft = (sessionTimeout as unknown as number) - Date.now();
+        const timeLeftMinutes = Math.max(0, Math.floor(timeLeft / 60000));
+        const isExpired = timeLeft <= 0;
+        
+        return {
+          sessionTimeout,
+          timeLeft,
+          timeLeftMinutes,
+          isExpired,
+        };
+      },
+    }),
+    {
+      name: 'auth-store',
+    }
+  );
+
+// Task store
+interface TaskState {
   tasks: Task[];
-  starredTasks: Task[];
-  myTasks: Task[];
-  currentFilters: TaskFilters;
   isLoading: boolean;
-  hasMore: boolean;
-  currentPage: number;
+  error: string | null;
+  filters: TaskFilters;
+  selectedTask: Task | null;
+  modalState: ModalState;
 
   // Actions
   fetchTasks: (filters?: TaskFilters) => Promise<void>;
-  fetchStarredTasks: () => Promise<void>;
-  fetchMyTasks: () => Promise<void>;
-  addTask: (task: Task) => void;
-  updateTask: (taskId: string, updates: Partial<Task>) => void;
-  removeTask: (taskId: string) => void;
-  toggleStar: (taskId: string) => void;
+  createTask: (taskData: CreateTaskData) => Promise<boolean>;
+  updateTask: (id: string, taskData: UpdateTaskData) => Promise<boolean>;
+  deleteTask: (id: string) => Promise<boolean>;
+  duplicateTask: (id: string) => Promise<boolean>;
+  assignSelfToTask: (id: string) => Promise<boolean>;
+  addStar: (id: string) => Promise<boolean>;
+  removeStar: (id: string) => Promise<boolean>;
+  exportTasks: (format: ExportFormat) => Promise<void>;
+  syncTasks: (since?: string) => Promise<void>;
+  
+  // UI Actions
+  setSelectedTask: (task: Task | null) => void;
+  setModalState: (state: ModalState) => void;
   setFilters: (filters: TaskFilters) => void;
-  resetTasks: () => void;
+  clearError: () => void;
+  
+  // WebSocket Actions
+  connectWebSocket: () => Promise<void>;
+  setupWebSocketHandlers: () => void;
 }
 
-export const useTasksStore = create<TasksState>()(
-  devtools((set, get) => ({
-    tasks: [],
-    starredTasks: [],
-    myTasks: [],
-    currentFilters: {
-      context: 'all',
-      page: 1,
-      limit: 20,
-      sort: 'updatedAt:desc',
-    },
-    isLoading: false,
-    hasMore: false,
-    currentPage: 1,
+export const useTaskStore = create<TaskState>()
+  devtools(
+    (set, get) => ({
+      tasks: [],
+      isLoading: false,
+      error: null,
+      filters: {
+        search: '',
+        status: 'all',
+        priority: 'all',
+        assignedTo: 'all',
+        createdBy: 'all',
+        dateRange: 'all',
+        starred: false,
+      },
+      selectedTask: null,
+      modalState: { isOpen: false, mode: 'view' },
 
-    fetchTasks: async (filters?: TaskFilters) => {
-      const currentFilters = filters || get().currentFilters;
-      set({ isLoading: true });
+      fetchTasks: async (filters?: TaskFilters) => {
+        set({ isLoading: true, error: null });
+        try {
+          const response = await apiClient.getTasks(filters || get().filters);
+          if (response.data) {
+            set({ tasks: response.data.tasks, isLoading: false });
+          } else {
+            set({ error: response.error?.message || 'שגיאה בטעינת משימות', isLoading: false });
+          }
+        } catch {
+          set({ error: 'שגיאת רשת בטעינת משימות', isLoading: false });
+        }
+      },
 
-      try {
-        const response = await apiClient.getTasks(currentFilters);
-        if (response.data) {
-          set({
-            tasks: response.data.items,
-            hasMore: response.data.hasMore,
-            currentPage: response.data.page,
-            currentFilters,
-            isLoading: false,
+      createTask: async (taskData: CreateTaskData) => {
+        set({ isLoading: true, error: null });
+        try {
+          const response = await apiClient.createTask(taskData);
+          if (response.data) {
+            set({ tasks: [...get().tasks, response.data], isLoading: false });
+            return true;
+          } else {
+            set({ error: response.error?.message || 'שגיאה ביצירת משימה', isLoading: false });
+            return false;
+          }
+        } catch {
+          set({ error: 'שגיאת רשת ביצירת משימה', isLoading: false });
+          return false;
+        }
+      },
+
+      updateTask: async (id: string, taskData: UpdateTaskData) => {
+        set({ isLoading: true, error: null });
+        try {
+          const response = await apiClient.updateTask(id, taskData);
+          if (response.data) {
+            set({
+              tasks: get().tasks.map(task => 
+                task.id === id ? response.data : task
+              ),
+              isLoading: false
+            });
+            return true;
+          } else {
+            set({ error: response.error?.message || 'שגיאה בעדכון משימה', isLoading: false });
+            return false;
+          }
+        } catch {
+          set({ error: 'שגיאת רשת בעדכון משימה', isLoading: false });
+          return false;
+        }
+      },
+
+      deleteTask: async (id: string) => {
+        set({ isLoading: true, error: null });
+        try {
+          const response = await apiClient.deleteTask(id);
+          if (response.data) {
+            set({
+              tasks: get().tasks.filter(task => task.id !== id),
+              isLoading: false
+            });
+            return true;
+          } else {
+            set({ error: response.error?.message || 'שגיאה במחיקת משימה', isLoading: false });
+            return false;
+          }
+        } catch {
+          set({ error: 'שגיאת רשת במחיקת משימה', isLoading: false });
+          return false;
+        }
+      },
+
+      duplicateTask: async (id: string) => {
+        set({ isLoading: true, error: null });
+        try {
+          const response = await apiClient.duplicateTask(id);
+          if (response.data) {
+            set({ tasks: [...get().tasks, response.data], isLoading: false });
+            return true;
+          } else {
+            set({ error: response.error?.message || 'שגיאה בשכפול משימה', isLoading: false });
+            return false;
+          }
+        } catch {
+          set({ error: 'שגיאת רשת בשכפול משימה', isLoading: false });
+          return false;
+        }
+      },
+
+      assignSelfToTask: async (id: string) => {
+        set({ isLoading: true, error: null });
+        try {
+          const response = await apiClient.assignSelfToTask(id);
+          if (response.data) {
+            set({
+              tasks: get().tasks.map(task => 
+                task.id === id ? response.data : task
+              ),
+              isLoading: false
+            });
+            return true;
+          } else {
+            set({ error: response.error?.message || 'שגיאה בהקצאת משימה', isLoading: false });
+            return false;
+          }
+        } catch {
+          set({ error: 'שגיאת רשת בהקצאת משימה', isLoading: false });
+          return false;
+        }
+      },
+
+      addStar: async (id: string) => {
+        set({ isLoading: true, error: null });
+        try {
+          const response = await apiClient.addStar(id);
+          if (response.data) {
+            set({
+              tasks: get().tasks.map(task => 
+                task.id === id ? response.data : task
+              ),
+              isLoading: false
+            });
+            return true;
+          } else {
+            set({ error: response.error?.message || 'שגיאה בהוספת כוכב', isLoading: false });
+            return false;
+          }
+        } catch {
+          set({ error: 'שגיאת רשת בהוספת כוכב', isLoading: false });
+          return false;
+        }
+      },
+
+      removeStar: async (id: string) => {
+        set({ isLoading: true, error: null });
+        try {
+          const response = await apiClient.removeStar(id);
+          if (response.data) {
+            set({
+              tasks: get().tasks.map(task => 
+                task.id === id ? response.data : task
+              ),
+              isLoading: false
+            });
+            return true;
+          } else {
+            set({ error: response.error?.message || 'שגיאה בהסרת כוכב', isLoading: false });
+            return false;
+          }
+        } catch {
+          set({ error: 'שגיאת רשת בהסרת כוכב', isLoading: false });
+          return false;
+        }
+      },
+
+      exportTasks: async (format: ExportFormat) => {
+        try {
+          await apiClient.exportTasks(format);
+        } catch {
+          set({ error: 'שגיאה בייצוא משימות' });
+        }
+      },
+
+      syncTasks: async (since?: string) => {
+        try {
+          const response = await apiClient.sync(since);
+          if (response.data) {
+            set({ tasks: response.data });
+          }
+        } catch {
+          set({ error: 'שגיאה בסנכרון משימות' });
+        }
+      },
+
+      setSelectedTask: (task: Task | null) => {
+        set({ selectedTask: task });
+      },
+
+      setModalState: (state: ModalState) => {
+        set({ modalState: state });
+      },
+
+      setFilters: (filters: TaskFilters) => {
+        set({ filters });
+      },
+
+      clearError: () => {
+        set({ error: null });
+      },
+
+      connectWebSocket: async () => {
+        try {
+          const client = await ensureWebSocketInitialized();
+          return client.connect();
+        } catch {
+          // Silent fail for WebSocket connection
+        }
+      },
+
+      setupWebSocketHandlers: () => {
+        const { fetchTasks } = get();
+        
+        // Test event
+        ensureWebSocketInitialized().then((client) => {
+          client.on('test', (data: unknown) => {
+            console.log('WebSocket test event:', data);
           });
-        }
-      } catch (_error) {
-        set({ isLoading: false });
-      }
-    },
+        }).catch(() => {
+          // Silent fail for WebSocket initialization
+        });
 
-    fetchStarredTasks: async () => {
-      try {
-        const response = await apiClient.getStarredTasks();
-        if (response.data) {
-          set({ starredTasks: response.data });
-        }
-      } catch (_error) {
-        console.error('Error fetching starred tasks:', _error);
-      }
-    },
-
-    fetchMyTasks: async () => {
-      try {
-        const response = await apiClient.getMyTasks();
-        if (response.data) {
-          set({
-            myTasks: response.data.items,
-            hasMore: response.data.hasMore,
+        // Task created event
+        ensureWebSocketInitialized().then((client) => {
+          client.on('task.created', async (data: unknown) => {
+            console.log('Task created:', data);
+            await fetchTasks();
           });
-        }
-      } catch (_error) {
-        console.error('Error fetching my tasks:', _error);
-      }
-    },
+        }).catch(() => {
+          // Silent fail for WebSocket initialization
+        });
 
-    addTask: (task: Task) => {
-      set(state => ({
-        tasks: [task, ...state.tasks],
-      }));
-    },
+        // Task updated event
+        ensureWebSocketInitialized().then((client) => {
+          client.on('task.updated', async (data: unknown) => {
+            console.log('Task updated:', data);
+            await fetchTasks();
+          });
+        }).catch(() => {
+          // Silent fail for WebSocket initialization
+        });
 
-    updateTask: (taskId: string, updates: Partial<Task>) => {
-      set(state => ({
-        tasks: state.tasks.map(task =>
-          task.id === taskId ? { ...task, ...updates } : task
-        ),
-        starredTasks: state.starredTasks.map(task =>
-          task.id === taskId ? { ...task, ...updates } : task
-        ),
-        myTasks: state.myTasks.map(task =>
-          task.id === taskId ? { ...task, ...updates } : task
-        ),
-      }));
-    },
+        // Task deleted event
+        ensureWebSocketInitialized().then((client) => {
+          client.on('task.deleted', async (data: unknown) => {
+            console.log('Task deleted:', data);
+            await fetchTasks();
+          });
+        }).catch(() => {
+          // Silent fail for WebSocket initialization
+        });
 
-    removeTask: (taskId: string) => {
-      set(state => ({
-        tasks: state.tasks.filter(task => task.id !== taskId),
-        starredTasks: state.starredTasks.filter(task => task.id !== taskId),
-        myTasks: state.myTasks.filter(task => task.id !== taskId),
-      }));
-    },
+        // Task duplicated event
+        ensureWebSocketInitialized().then((client) => {
+          client.on('task.duplicated', async (data: unknown) => {
+            console.log('Task duplicated:', data);
+            await fetchTasks();
+          });
+        }).catch(() => {
+          // Silent fail for WebSocket initialization
+        });
 
-    toggleStar: (taskId: string) => {
-      set(state => {
-        const updateTask = (task: Task) =>
-          task.id === taskId ? { ...task, isStarred: !task.isStarred } : task;
+        // Star added event
+        ensureWebSocketInitialized().then((client) => {
+          client.on('star.added', async (data: unknown) => {
+            console.log('Star added:', data);
+            await fetchTasks();
+          });
+        }).catch(() => {
+          // Silent fail for WebSocket initialization
+        });
 
-        return {
-          tasks: state.tasks.map(updateTask),
-          starredTasks: state.starredTasks.map(updateTask),
-          myTasks: state.myTasks.map(updateTask),
-        };
-      });
-    },
-
-    setFilters: (filters: TaskFilters) => {
-      set({ currentFilters: filters });
-    },
-
-    resetTasks: () => {
-      set({
-        tasks: [],
-        starredTasks: [],
-        myTasks: [],
-        currentFilters: {
-          context: 'all',
-          page: 1,
-          limit: 20,
-          sortBy: 'updatedAt',
-          sortOrder: 'desc',
-        },
-        isLoading: false,
-        hasMore: false,
-        currentPage: 1,
-      });
-    },
-  }))
-);
+        // Star removed event
+        ensureWebSocketInitialized().then((client) => {
+          client.on('star.removed', async (data: unknown) => {
+            console.log('Star removed:', data);
+            await fetchTasks();
+          });
+        }).catch(() => {
+          // Silent fail for WebSocket initialization
+        });
+      },
+    }),
+    {
+      name: 'task-store',
+    }
+  );
 
 // UI store
 interface UIStoreState {
+  navigation: NavigationItem[];
+  currentPage: string;
+  isLoading: boolean;
+  error: string | null;
   modal: ModalState;
-  ui: UIState;
-  navigation: NavigationItem;
 
   // Actions
+  setCurrentPage: (page: string) => void;
+  setLoading: (loading: boolean) => void;
+  setError: (error: string | null) => void;
+  clearError: () => void;
   openModal: (type: ModalState['type'], taskId?: string) => void;
   closeModal: () => void;
-  setLoading: (isLoading: boolean) => void;
-  setError: (error: string | null) => void;
-  setSuccess: (success: string | null) => void;
-  setNavigation: (item: NavigationItem) => void;
-  clearUI: () => void;
 }
 
-export const useUIStore = create<UIStoreState>()(
-  devtools(set => ({
-    modal: { isOpen: false, type: null },
-    ui: { isLoading: false, error: null, success: null },
-    navigation: 'home',
+export const useUIStore = create<UIStoreState>()
+  devtools(
+    (set) => ({
+      navigation: [
+        { id: 'home', label: 'דף הבית', href: '/', icon: 'home' },
+        { id: 'mine', label: 'המשימות שלי', href: '/mine', icon: 'user' },
+        { id: 'starred', label: 'סומנו בכוכב', href: '/starred', icon: 'star' },
+      ],
+      currentPage: 'home',
+      isLoading: false,
+      error: null,
+      modal: { isOpen: false, type: null },
 
-    openModal: (type: ModalState['type'], taskId?: string) => {
-      set({ modal: { isOpen: true, type, taskId } });
-    },
+      setCurrentPage: (page: string) => {
+        set({ currentPage: page });
+      },
 
-    closeModal: () => {
-      set({ modal: { isOpen: false, type: null, taskId: undefined } });
-    },
+      setLoading: (loading: boolean) => {
+        set({ isLoading: loading });
+      },
 
-    setLoading: (isLoading: boolean) => {
-      set(state => ({
-        ui: { ...state.ui, isLoading },
-      }));
-    },
+      setError: (error: string | null) => {
+        set({ error });
+      },
 
-    setError: (error: string | null) => {
-      set(state => ({
-        ui: { ...state.ui, error, success: null },
-      }));
-    },
+      clearError: () => {
+        set({ error: null });
+      },
 
-    setSuccess: (success: string | null) => {
-      set(state => ({
-        ui: { ...state.ui, success, error: null },
-      }));
-    },
+      openModal: (type: ModalState['type'], taskId?: string) => {
+        set({ modal: { isOpen: true, type, taskId } });
+      },
 
-    setNavigation: (navigation: NavigationItem) => {
-      set({ navigation });
-    },
+      closeModal: () => {
+        set({ modal: { isOpen: false, type: null, taskId: undefined } });
+      },
+    }),
+    {
+      name: 'ui-store',
+    }
+  );
 
-    clearUI: () => {
-      set({
-        ui: { isLoading: false, error: null, success: null },
-      });
-    },
-  }))
-);
+// Search store
+export const useSearchStore = create<{
+  searchQuery: string;
+  setSearchQuery: (query: string) => void;
+  clearSearch: () => void;
+}>((set) => ({
+  searchQuery: '',
+  setSearchQuery: (query: string) => set({ searchQuery: query }),
+  clearSearch: () => set({ searchQuery: '' }),
+}));
 
-// WebSocket event handlers
+// WebSocket event handlers with proper cleanup
+let cleanupFunctions: (() => void)[] = [];
+
 export const setupWebSocketHandlers = () => {
-  const tasksStore = useTasksStore.getState();
+  // Clean up existing handlers
+  cleanupFunctions.forEach(cleanup => cleanup());
+  cleanupFunctions = [];
 
-  // Task events
-  wsClient.on('task.created', (data: unknown) => {
-    const taskData = data as { task: Task };
-    tasksStore.addTask(taskData.task);
+  const taskStore = useTaskStore.getState();
+
+  // Test event handler
+  ensureWebSocketInitialized().then((client) => {
+    const cleanup = client.on('test', (data: unknown) => {
+      console.log('WebSocket test event:', data);
+    });
+    cleanupFunctions.push(cleanup);
+  }).catch(() => {
+    // Silent fail for WebSocket initialization
   });
 
-  wsClient.on('task.updated', (data: unknown) => {
-    const updateData = data as { taskId: string; patch: Partial<Task> };
-    tasksStore.updateTask(updateData.taskId, updateData.patch);
+  // Task created event
+  ensureWebSocketInitialized().then((client) => {
+    const cleanup = client.on('task.created', async (data: unknown) => {
+      console.log('Task created:', data);
+      await taskStore.fetchTasks();
+    });
+    cleanupFunctions.push(cleanup);
+  }).catch(() => {
+    // Silent fail for WebSocket initialization
   });
 
-  wsClient.on('task.deleted', (data: unknown) => {
-    const deleteData = data as { taskId: string };
-    tasksStore.removeTask(deleteData.taskId);
+  // Task updated event
+  ensureWebSocketInitialized().then((client) => {
+    const cleanup = client.on('task.updated', async (data: unknown) => {
+      console.log('Task updated:', data);
+      await taskStore.fetchTasks();
+    });
+    cleanupFunctions.push(cleanup);
+  }).catch(() => {
+    // Silent fail for WebSocket initialization
   });
 
-  wsClient.on('task.duplicated', (data: unknown) => {
-    const duplicateData = data as { newTask: Task };
-    tasksStore.addTask(duplicateData.newTask);
+  // Task deleted event
+  ensureWebSocketInitialized().then((client) => {
+    const cleanup = client.on('task.deleted', async (data: unknown) => {
+      console.log('Task deleted:', data);
+      await taskStore.fetchTasks();
+    });
+    cleanupFunctions.push(cleanup);
+  }).catch(() => {
+    // Silent fail for WebSocket initialization
   });
 
-  // Star events
-  wsClient.on('star.added', (data: unknown) => {
-    const starData = data as { taskId: string };
-    tasksStore.toggleStar(starData.taskId);
+  // Task duplicated event
+  ensureWebSocketInitialized().then((client) => {
+    const cleanup = client.on('task.duplicated', async (data: unknown) => {
+      console.log('Task duplicated:', data);
+      await taskStore.fetchTasks();
+    });
+    cleanupFunctions.push(cleanup);
+  }).catch(() => {
+    // Silent fail for WebSocket initialization
   });
 
-  wsClient.on('star.removed', (data: unknown) => {
-    const starData = data as { taskId: string };
-    tasksStore.toggleStar(starData.taskId);
+  // Star added event
+  ensureWebSocketInitialized().then((client) => {
+    const cleanup = client.on('star.added', async (data: unknown) => {
+      console.log('Star added:', data);
+      await taskStore.fetchTasks();
+    });
+    cleanupFunctions.push(cleanup);
+  }).catch(() => {
+    // Silent fail for WebSocket initialization
+  });
+
+  // Star removed event
+  ensureWebSocketInitialized().then((client) => {
+    const cleanup = client.on('star.removed', async (data: unknown) => {
+      console.log('Star removed:', data);
+      await taskStore.fetchTasks();
+    });
+    cleanupFunctions.push(cleanup);
+  }).catch(() => {
+    // Silent fail for WebSocket initialization
   });
 };
