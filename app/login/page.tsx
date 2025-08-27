@@ -3,8 +3,9 @@
 import React, { useState } from 'react';
 import { LoginForm } from '@/components/auth/LoginForm';
 import { SignupForm } from '@/components/auth/SignupForm';
+import { withoutAuth } from '@/components/auth/ProtectedRoute';
 
-export default function LoginPage() {
+function LoginPage() {
   const [showSignup, setShowSignup] = useState(false);
 
   return (
@@ -24,3 +25,5 @@ export default function LoginPage() {
     </div>
   );
 }
+
+export default withoutAuth(LoginPage);
