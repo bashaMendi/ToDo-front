@@ -7,13 +7,23 @@ import { TaskModal } from '@/components/tasks/TaskModal';
 import { ExportButton } from '@/components/tasks/ExportButton';
 import { withAuth } from '@/components/auth/ProtectedRoute';
 import { useUI } from '@/contexts/UIContext';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQueryClient, useQuery } from '@tanstack/react-query';
 import { Task } from '@/types';
 import { apiClient } from '@/lib/api';
+import { queryKeys } from '@/lib/query-client';
 
 function MyTasksPage() {
   const { modal, openModal, closeModal } = useUI();
   const queryClient = useQueryClient();
+
+  // Get my tasks to check if there are any for export button
+  const { data: myTasksResponse } = useQuery({
+    queryKey: queryKeys.tasks.mine({}),
+    queryFn: () => apiClient.getMyTasks(),
+    staleTime: 2 * 60 * 1000, // 2 minutes
+  });
+
+  const hasMyTasks = (myTasksResponse?.data?.items?.length || 0) > 0;
 
   // Search is handled globally by useSearch hook
 
@@ -57,7 +67,7 @@ function MyTasksPage() {
               </h1>
               <p className='text-lg text-gray-600'>המשימות שמוקצות אליך</p>
             </div>
-            <ExportButton />
+            <ExportButton hasTasks={hasMyTasks} />
           </div>
         </div>
 
