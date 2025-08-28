@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { useAuthStore, useTaskStore, setupWebSocketHandlers } from '@/store';
+import { useAuthStore, setupWebSocketHandlers } from '@/store';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { ensureWebSocketInitialized } from '@/lib/websocket';
 
@@ -14,28 +14,38 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const router = useRouter();
   const pathname = usePathname();
   const [isHydrated, setIsHydrated] = useState(false);
-  
-  const { checkAuth, isLoading, isInitialized, error, isAuthenticated, user } = useAuthStore((state: any) => state) as any;
 
-  // Initialize store hydration
+  // ---- Read state and actions via Zustand selectors (avoid using .getState() directly) ----
+  const isLoading        = useAuthStore(s => s.isLoading);
+  const isInitialized    = useAuthStore(s => s.isInitialized);
+  const error            = useAuthStore(s => s.error);
+  const isAuthenticated  = useAuthStore(s => s.isAuthenticated);
+  const user             = useAuthStore(s => s.user);
+
+  const checkAuth        = useAuthStore(s => s.checkAuth);
+  const getSessionStatus = useAuthStore(s => s.getSessionStatus);
+  const logout           = useAuthStore(s => s.logout);
+  const refreshSession   = useAuthStore(s => s.refreshSession);
+  const isLoggingOut     = useAuthStore(s => s.isLoggingOut);
+
+  // Wait for client hydration before running client-only logic
   useEffect(() => {
     setIsHydrated(true);
   }, []);
 
-  // Check authentication after hydration
+  // Trigger initial auth check after hydration
   useEffect(() => {
     if (!isHydrated) return;
-    
     checkAuth();
   }, [isHydrated, checkAuth]);
 
-  // Redirect to login if not authenticated and not already on login page
+  // Redirect based on authentication state and current route
   useEffect(() => {
-    if (!isInitialized) return; // Wait for auth check to complete
-    
-    const isLoginPage = pathname === '/login';
+    if (!isInitialized) return;
+
+    const isLoginPage  = pathname === '/login';
     const isPublicPage = ['/login', '/signup', '/forgot-password', '/reset-password'].includes(pathname);
-    
+
     if (!isAuthenticated && !isPublicPage) {
       router.push('/login');
     } else if (isAuthenticated && isLoginPage) {
@@ -43,93 +53,71 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   }, [isInitialized, isAuthenticated, pathname, router]);
 
-  // Monitor session status
+  // Periodically check if the session expired and logout if needed
   useEffect(() => {
     if (!isInitialized || !isAuthenticated) return;
 
     const interval = setInterval(() => {
-      const { getSessionStatus } = (useAuthStore as any).getState();
-      const sessionStatus = getSessionStatus();
-      
-      if (sessionStatus.isExpired) {
-        (useAuthStore as any).getState().logout();
+      const sessionStatus = getSessionStatus?.();
+      if (sessionStatus?.isExpired) {
+        logout();
       }
-    }, 60000); // Check every minute
+    }, 60_000); // every 60s
 
     return () => clearInterval(interval);
-  }, [isInitialized, isAuthenticated]);
+  }, [isInitialized, isAuthenticated, getSessionStatus, logout]);
 
-
-
-  // Setup WebSocket handlers
+  // Initialize WebSocket and register handlers once auth is ready
   useEffect(() => {
     if (!isInitialized) return;
-    
-    ensureWebSocketInitialized().then(() => {
-      // Pass a simple callback that will be replaced later
-      setupWebSocketHandlers(async () => {
-        // This will be replaced by the actual fetchTasks function
-        console.log('WebSocket event received - fetchTasks not available');
+
+    ensureWebSocketInitialized()
+      .then(() => {
+        // Provide a placeholder callback; replace with the real fetchTasks when available
+        setupWebSocketHandlers?.(async () => {
+          // console.log('WS event -> fetchTasks placeholder');
+        });
+      })
+      .catch(() => {
+        // Ignore WS init errors silently (do not break the UI)
       });
-    }).catch(() => {
-      // Silent fail for WebSocket initialization
-    });
   }, [isInitialized, user?.id]);
 
-  // Setup activity listeners for session management
+  // Add throttled activity listeners to refresh the session periodically
   useEffect(() => {
     if (!isInitialized) return;
 
-    const { refreshSession } = (useAuthStore as any).getState();
-    
     let lastRefreshTime = 0;
     const REFRESH_INTERVAL = 5 * 60 * 1000; // 5 minutes
-    
-    let activityTimeout: NodeJS.Timeout | null = null;
-    
+    let activityTimeout: ReturnType<typeof setTimeout> | null = null;
+
     const handleActivity = () => {
-      // Throttle activity events to avoid spam
-      if (activityTimeout) {
-        return;
-      }
-      
+      // Throttle activity events to once per second
+      if (activityTimeout) return;
       activityTimeout = setTimeout(() => {
         activityTimeout = null;
-      }, 1000); // Throttle to once per second
-      
+      }, 1000);
+
       const now = Date.now();
-      
-      // Only refresh session every 5 minutes to avoid too many requests
+      // Refresh only if enough time passed and auth is still valid
       if (now - lastRefreshTime > REFRESH_INTERVAL) {
-        // Check if user is still authenticated before refreshing
-        const authState = (useAuthStore as any).getState();
-        if (authState.isAuthenticated && !authState.isLoggingOut && !authState.error) {
-          refreshSession();
+        if (isAuthenticated && !isLoggingOut && !error) {
+          refreshSession?.();
           lastRefreshTime = now;
         }
       }
-      // Removed else block to reduce spam
     };
 
-    const events = ['mousedown', 'keypress', 'scroll', 'touchstart']; // Removed mousemove to reduce spam
-    
-    events.forEach(event => {
-      document.addEventListener(event, handleActivity, true);
-    });
+    const events = ['mousedown', 'keypress', 'scroll', 'touchstart'];
+    events.forEach(e => document.addEventListener(e, handleActivity, true));
 
     return () => {
-      events.forEach(event => {
-        document.removeEventListener(event, handleActivity, true);
-      });
-      
-      // Cleanup activity timeout
-      if (activityTimeout) {
-        clearTimeout(activityTimeout);
-      }
+      events.forEach(e => document.removeEventListener(e, handleActivity, true));
+      if (activityTimeout) clearTimeout(activityTimeout);
     };
-  }, [isInitialized]);
+  }, [isInitialized, isAuthenticated, isLoggingOut, error, refreshSession]);
 
-  // Show loading state while initializing
+  // Loading states while auth is initializing
   if (!isHydrated || (!isInitialized && isLoading)) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -141,7 +129,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     );
   }
 
-  // Show loading state if authenticated but user data is still loading
+  // Loading state when authenticated but user details are still being fetched
   if (isAuthenticated && !user && isLoading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -153,15 +141,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
     );
   }
 
-  // Show error state if there's a critical error (but not 401 which is normal)
+  // Error state (ignore expected unauthenticated/network transient messages)
   if (error && !isInitialized && error !== 'משתמש לא מחובר' && error !== 'שגיאת רשת - נסה שוב') {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="bg-red-50 border border-red-200 rounded-lg p-6 max-w-md">
-            <h2 className="text-lg font-semibold text-red-800 mb-2">
-              שגיאה בטעינת המערכת
-            </h2>
+            <h2 className="text-lg font-semibold text-red-800 mb-2">שגיאה בטעינת המערכת</h2>
             <p className="text-red-600 mb-4">{error}</p>
             <button
               onClick={() => window.location.reload()}
@@ -175,6 +161,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
     );
   }
 
+  // Render children when everything is ready
   return <>{children}</>;
 }
-
