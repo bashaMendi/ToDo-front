@@ -8,7 +8,7 @@ import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { Task, TaskFilters as TaskFiltersType } from '@/types';
 import { apiClient } from '@/lib/api';
 import { queryKeys } from '@/lib/query-client';
-import { useSearchStore } from '@/store';
+import { useSearchStore, useAuthStore } from '@/store';
 import { usePerformance } from '@/hooks/usePerformance';
 
 interface TaskListProps {
@@ -28,7 +28,8 @@ export const TaskList = memo<TaskListProps>(({
   const { measureRender } = usePerformance('TaskList');
   const queryClient = useQueryClient();
 
-  // const { user } = useAuthStore();
+  // Get authentication state
+  const { isAuthenticated, isInitialized } = useAuthStore();
 
   // Get search query from global store
   const { searchQuery } = useSearchStore();
@@ -58,7 +59,7 @@ export const TaskList = memo<TaskListProps>(({
     },
     staleTime: 5 * 60 * 1000, // 5 minutes
     gcTime: 10 * 60 * 1000, // 10 minutes
-    enabled: true,
+    enabled: isAuthenticated && isInitialized, // Only fetch when user is authenticated and initialized
   });
 
   // Memoized handlers

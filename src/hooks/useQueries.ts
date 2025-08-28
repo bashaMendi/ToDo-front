@@ -329,7 +329,7 @@ export const useLogin = () => {
         const store = useAuthStore.getState();
         store.setUser(response.data.user);
         
-        console.log('[LOGIN] Store updated successfully:', response.data.user);
+
       }
       
       // Invalidate user data
@@ -353,7 +353,13 @@ export const useSignup = () => {
       password: string;
       confirmPassword: string;
     }) => apiClient.signup({ name, email, password, confirmPassword }),
-    onSuccess: () => {
+    onSuccess: (response) => {
+      // Update store state with user data
+      if (response.data?.user) {
+        const store = useAuthStore.getState();
+        store.setUser(response.data.user);
+      }
+      
       // Invalidate user data
       queryClient.invalidateQueries({ queryKey: queryKeys.auth.me });
     },

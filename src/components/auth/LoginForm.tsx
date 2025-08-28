@@ -49,7 +49,6 @@ export const LoginForm: React.FC<LoginFormProps> = ({
         
         if (user && (user as any).id) {
           // useLogin already updates the store - no need to call setUser here
-          console.log('[LOGIN] User logged in successfully:', user);
         } else {
           setGeneralError('נתוני משתמש לא תקינים');
         }

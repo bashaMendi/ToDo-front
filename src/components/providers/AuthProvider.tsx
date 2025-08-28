@@ -36,7 +36,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // Trigger initial auth check after hydration
   useEffect(() => {
     if (!isHydrated) return;
-    console.log('[AUTH] Running initial auth check');
     checkAuth();
   }, [isHydrated, checkAuth]);
 
@@ -47,22 +46,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
     const isLoginPage  = pathname === '/login';
     const isPublicPage = ['/login', '/signup', '/forgot-password', '/reset-password'].includes(pathname);
 
-    console.log('[AUTH] Redirect check:', { 
-      isInitialized, 
-      isAuthenticated, 
-      isLoading, 
-      pathname, 
-      isLoginPage, 
-      isPublicPage,
-      user: user?.id,
-      timestamp: new Date().toISOString()
-    });
-
     if (!isAuthenticated && !isPublicPage) {
-      console.log('[AUTH] Redirecting to login');
       router.push('/login');
     } else if (isAuthenticated && isLoginPage) {
-      console.log('[AUTH] Redirecting to home');
       router.push('/');
     }
   }, [isInitialized, isAuthenticated, isLoading, pathname, router]);
