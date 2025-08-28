@@ -107,12 +107,31 @@ to-do-list-front/
 - **Node.js 18+** (מומלץ 20+)
 - **npm** או **yarn**
 - **Git**
+- **Backend API** (רצה על localhost:3001)
 
 ### פריסה
 
 - **Netlify** (מומלץ) או **Vercel**
 - **Backend API** (נפרד)
 - **MongoDB Atlas** (Database)
+
+## משתני סביבה
+
+### משתנים נדרשים
+
+| משתנה | תיאור | דוגמה לפיתוח | דוגמה לייצור |
+|--------|-------|---------------|---------------|
+| `NEXT_PUBLIC_API_BASE_URL` | כתובת ה-API | `http://localhost:3001` | `https://your-api.com` |
+| `NEXT_PUBLIC_WS_URL` | כתובת WebSocket | `ws://localhost:3001` | `wss://your-api.com` |
+| `NEXT_PUBLIC_TIMEZONE` | אזור זמן | `Asia/Jerusalem` | `Asia/Jerusalem` |
+
+### הערות חשובות
+
+- **NODE_ENV**: מוגדר אוטומטית על ידי Next.js
+- **פיתוח**: `NODE_ENV=development` (אוטומטי)
+- **ייצור**: `NODE_ENV=production` (אוטומטי)
+- **SSL**: חובה בייצור (https/wss)
+- **NEXT_PUBLIC_**: רק משתנים עם תחילית זו נגישים ב-frontend
 
 ## התקנה והרצה
 
@@ -131,18 +150,40 @@ npm install
 
 ### 3. הגדרת משתני סביבה
 
+#### פיתוח מקומי (Development)
+
 צור קובץ `.env.local`:
 
 ```env
-# API Configuration
+# Development Environment
+NODE_ENV=development
+
+# API Configuration (Local Backend)
 NEXT_PUBLIC_API_BASE_URL=http://localhost:3001
 NEXT_PUBLIC_WS_URL=ws://localhost:3001
 NEXT_PUBLIC_TIMEZONE=Asia/Jerusalem
-
-# Backend URLs (Production)
-# NEXT_PUBLIC_API_BASE_URL=https://your-backend-api.com
-# NEXT_PUBLIC_WS_URL=wss://your-backend-api.com
 ```
+
+#### ייצור (Production)
+
+ב-Netlify או Vercel, הגדר את משתני הסביבה:
+
+```env
+# Production Environment
+NODE_ENV=production
+
+# API Configuration (Production Backend)
+NEXT_PUBLIC_API_BASE_URL=https://your-backend-api.com
+NEXT_PUBLIC_WS_URL=wss://your-backend-api.com
+NEXT_PUBLIC_TIMEZONE=Asia/Jerusalem
+```
+
+#### הערות חשובות:
+
+- **פיתוח**: השתמש ב-`http://localhost:3001` ו-`ws://localhost:3001`
+- **ייצור**: השתמש ב-`https://` ו-`wss://` (SSL)
+- **NODE_ENV**: מוגדר אוטומטית ב-Next.js (development/production)
+- **NEXT_PUBLIC_**: רק משתנים עם תחילית זו נגישים ב-frontend
 
 ### 4. הרצת הפרויקט
 
