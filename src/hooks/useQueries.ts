@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api';
 import { queryKeys } from '@/lib/query-client';
+import { useAuthStore } from '@/store';
 import {
   TaskFilters,
   CreateTaskData,
@@ -322,7 +323,15 @@ export const useLogin = () => {
   return useMutation({
     mutationFn: ({ email, password }: { email: string; password: string }) =>
       apiClient.login({ email, password }),
-    onSuccess: () => {
+    onSuccess: (response) => {
+      // Update store state with user data
+      if (response.data?.user) {
+        const store = useAuthStore.getState();
+        store.setUser(response.data.user);
+        
+        console.log('[LOGIN] Store updated successfully:', response.data.user);
+      }
+      
       // Invalidate user data
       queryClient.invalidateQueries({ queryKey: queryKeys.auth.me });
     },
