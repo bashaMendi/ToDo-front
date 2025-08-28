@@ -21,14 +21,6 @@ class ApiClient {
 
   constructor(baseURL: string) {
     this.baseURL = baseURL;
-
-    // Guard against misconfig: must start with http/https
-    if (!/^https?:\/\//i.test(this.baseURL)) {
-      // eslint-disable-next-line no-console
-      console.error('[API] Invalid NEXT_PUBLIC_API_BASE_URL:', this.baseURL);
-      // Fallback to avoid relative fetch
-      this.baseURL = 'https://todo-back-bfph.onrender.com';
-    }
   }
 
   private async request<T>(
@@ -73,12 +65,38 @@ class ApiClient {
 
       if (!response.ok) {
         if (response.status === 401) {
-          if (endpoint.includes('/auth/me')) return { data: undefined, error: undefined };
-          if (endpoint.includes('/auth/login') || endpoint.includes('/auth/signup')) {
-            return { error: { code: 401, message: data.message || 'פרטי התחברות שגויים', requestId: data.requestId || 'unknown', field: data.field } };
+          // Treat "who am I" endpoints as non-fatal (don't force logout)
+          const mePaths = ['/me', '/auth/me'];
+          const isMeEndpoint = mePaths.some(p =>
+            endpoint === p || endpoint.endsWith(p)
+          );
+
+          if (isMeEndpoint) {
+            // Return "not logged" state without side effects
+            return { data: undefined, error: undefined };
           }
-          (useAuthStore as any).getState?.().logout?.();
-          return { data: undefined, error: undefined };
+
+          // For login/signup 401: surface validation errors
+          if (endpoint.includes('/auth/login') || endpoint.includes('/auth/signup')) {
+            return {
+              error: {
+                code: 401,
+                message: data.message || 'פרטי התחברות שגויים',
+                requestId: data.requestId || 'unknown',
+                field: data.field,
+              },
+            };
+          }
+
+          // For other 401 errors: return error without auto-logout
+          // Let the calling layer (store/Provider) decide what to do
+          return {
+            error: {
+              code: 401,
+              message: data.message || 'לא מורשה',
+              requestId: data.requestId || 'unknown',
+            },
+          };
         }
         if (response.status === 404) {
           return { error: { code: 404, message: 'המשאב המבוקש לא נמצא', requestId: data.requestId || 'unknown' } };
