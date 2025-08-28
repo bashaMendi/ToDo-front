@@ -158,34 +158,34 @@ class WebSocketClient {
       // Silent test event handling
     });
 
-    // Task events
-    this.socket.on('task.created', (_data: unknown) => {
-      // Silent task created event handling
+    // Task events - Forward to registered handlers
+    this.socket.on('task.created', (data: unknown) => {
+      this.emit('task.created', data);
     });
 
-    this.socket.on('task.updated', (_data: unknown) => {
-      // Silent task updated event handling
+    this.socket.on('task.updated', (data: unknown) => {
+      this.emit('task.updated', data);
     });
 
-    this.socket.on('task.deleted', (_data: unknown) => {
-      // Silent task deleted event handling
+    this.socket.on('task.deleted', (data: unknown) => {
+      this.emit('task.deleted', data);
     });
 
-    this.socket.on('task.duplicated', (_data: unknown) => {
-      // Silent task duplicated event handling
+    this.socket.on('task.duplicated', (data: unknown) => {
+      this.emit('task.duplicated', data);
     });
 
-    this.socket.on('task.assigned', (_data: unknown) => {
-      // Silent task assigned event handling
+    this.socket.on('task.assigned', (data: unknown) => {
+      this.emit('task.assigned', data);
     });
 
-    // Star events
-    this.socket.on('star.added', (_data: unknown) => {
-      // Silent star added event handling
+    // Star events - Forward to registered handlers
+    this.socket.on('star.added', (data: unknown) => {
+      this.emit('star.added', data);
     });
 
-    this.socket.on('star.removed', (_data: unknown) => {
-      // Silent star removed event handling
+    this.socket.on('star.removed', (data: unknown) => {
+      this.emit('star.removed', data);
     });
   }
 
@@ -379,6 +379,14 @@ export async function ensureWebSocketInitialized(): Promise<WebSocketClient> {
       // Silent fail for WebSocket initialization
     }
   }
+  
+  // Ensure connection is established
+  try {
+    await wsClient.connect();
+  } catch {
+    // Silent fail for WebSocket connection
+  }
+  
   return wsClient;
 }
 
