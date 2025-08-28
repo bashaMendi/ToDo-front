@@ -7,6 +7,7 @@ import { ToastProvider } from '@/components/ui/Toast';
 import { PerformanceDashboard } from '@/components/debug/PerformanceDashboard';
 import { AuthProvider } from '@/components/providers/AuthProvider';
 import { SessionManager } from '@/components/auth/SessionManager';
+import { UIProvider } from '@/contexts/UIContext';
 
 export const metadata: Metadata = {
   title: 'מערכת ניהול משימות משותפת',
@@ -31,10 +32,12 @@ export default function RootLayout({
             <QueryProvider>
               <AuthProvider>
                 <SessionManager>
-                  <ToastProvider>
-                    {children}
-                    <PerformanceDashboard />
-                  </ToastProvider>
+                  <UIProvider>
+                    <ToastProvider>
+                      {children}
+                      <PerformanceDashboard />
+                    </ToastProvider>
+                  </UIProvider>
                 </SessionManager>
               </AuthProvider>
             </QueryProvider>
