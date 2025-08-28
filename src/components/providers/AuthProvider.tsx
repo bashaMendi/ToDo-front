@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { useAuthStore, setupWebSocketHandlers } from '@/store';
+import { useAuthStore, useTaskStore, setupWebSocketHandlers } from '@/store';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { ensureWebSocketInitialized } from '@/lib/websocket';
 
@@ -11,10 +11,11 @@ interface AuthProviderProps {
 }
 
 export function AuthProvider({ children }: AuthProviderProps) {
-  const { checkAuth, isLoading, isInitialized, error, isAuthenticated, user } = useAuthStore((state: any) => state) as any;
-  const [isHydrated, setIsHydrated] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
+  const [isHydrated, setIsHydrated] = useState(false);
+  
+  const { checkAuth, isLoading, isInitialized, error, isAuthenticated, user } = useAuthStore((state: any) => state) as any;
 
   // Initialize store hydration
   useEffect(() => {
@@ -65,7 +66,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
     if (!isInitialized) return;
     
     ensureWebSocketInitialized().then(() => {
-      setupWebSocketHandlers();
+      // Pass a simple callback that will be replaced later
+      setupWebSocketHandlers(async () => {
+        // This will be replaced by the actual fetchTasks function
+        console.log('WebSocket event received - fetchTasks not available');
+      });
     }).catch(() => {
       // Silent fail for WebSocket initialization
     });
