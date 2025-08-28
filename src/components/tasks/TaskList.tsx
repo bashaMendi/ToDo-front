@@ -46,6 +46,8 @@ export const TaskList = memo<TaskListProps>(({
   // Log query key for debugging
   const queryKey = queryKeys.tasks.all(memoizedFilters);
 
+
+
   // Fetch tasks
   const {
     data: tasksResponse,
