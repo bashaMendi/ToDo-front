@@ -14,11 +14,7 @@ const API_BASE_URL = normalizeBase(RAW_BASE);
 const joinURL = (base: string, path: string) =>
   `${base}/${String(path || '').replace(/^\/+/, '')}`;
 
-// Debug (will appear in browser console in prod once, good for verification)
-if (typeof window !== 'undefined') {
-  // eslint-disable-next-line no-console
-  console.log('[API] BASE =', API_BASE_URL);
-}
+
 
 class ApiClient {
   private baseURL: string;
@@ -115,7 +111,7 @@ class ApiClient {
     return this.request<{ user: User }>('/auth/signup', { method: 'POST', body: JSON.stringify(credentials) });
   }
   logout() { return this.request<void>('/auth/logout', { method: 'POST' }); }
-  getCurrentUser() { return this.request<User>('/auth/me'); }
+  getCurrentUser() { return this.request<User>('/me'); }
   forgotPassword(email: string) { return this.request<void>('/auth/forgot', { method: 'POST', body: JSON.stringify({ email }) }); }
   resetPassword(token: string, newPassword: string) { return this.request<void>('/auth/reset', { method: 'POST', body: JSON.stringify({ token, newPassword }) }); }
 
