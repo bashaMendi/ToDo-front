@@ -5,6 +5,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import { useAuthStore, setupWebSocketHandlers } from '@/store';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { ensureWebSocketInitialized } from '@/lib/websocket';
+import { useQueryClient } from '@tanstack/react-query';
 
 interface AuthProviderProps {
   children: React.ReactNode;
@@ -14,6 +15,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const router = useRouter();
   const pathname = usePathname();
   const [isHydrated, setIsHydrated] = useState(false);
+  const queryClient = useQueryClient();
 
   // ---- Read state and actions via Zustand selectors (avoid using .getState() directly) ----
   const isLoading        = useAuthStore(s => s.isLoading);
@@ -46,6 +48,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
     const isLoginPage  = pathname === '/login';
     const isPublicPage = ['/login', '/signup', '/forgot-password', '/reset-password'].includes(pathname);
 
+
+
     if (!isAuthenticated && !isPublicPage) {
       router.push('/login');
     } else if (isAuthenticated && isLoginPage) {
@@ -74,15 +78,16 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
     ensureWebSocketInitialized()
       .then(() => {
-        // Provide a placeholder callback; replace with the real fetchTasks when available
+        // Provide the real fetchTasks callback for WebSocket events
         setupWebSocketHandlers?.(async () => {
-          // WebSocket event received
+          // Invalidate all tasks queries to refresh data
+          await queryClient.invalidateQueries({ queryKey: ['tasks'] });
         });
       })
       .catch(() => {
         // Ignore WS init errors silently (do not break the UI)
       });
-  }, [isInitialized, user?.id]);
+  }, [isInitialized, user?.id, queryClient]);
 
   // Add throttled activity listeners to refresh the session periodically
   // Temporarily disabled to prevent logout loops
