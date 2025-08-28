@@ -125,16 +125,16 @@ export const LoginForm: React.FC<LoginFormProps> = ({
           />
         </div>
 
-        {/* Forgot Password Link */}
-        <div className='text-left'>
-          <button
-            type='button'
-            onClick={onForgotPassword}
-            className='text-sm text-blue-600 hover:text-blue-500 transition-colors'
-          >
-            שכחת סיסמה?
-          </button>
-        </div>
+                 {/* Forgot Password Link - Hidden for now */}
+         {/* <div className='text-left'>
+           <button
+             type='button'
+             onClick={onForgotPassword}
+             className='text-sm text-blue-600 hover:text-blue-500 transition-colors'
+           >
+             שכחת סיסמה?
+           </button>
+         </div> */}
 
         {/* Submit Button */}
         <Button
