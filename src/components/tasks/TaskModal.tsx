@@ -127,7 +127,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
           </div>
 
           {/* Actions */}
-          <div className='flex items-center justify-end space-x-6 space-x-reverse pt-6 border-t border-gray-200'>
+          <div className='flex items-center justify-end gap-4 pt-6 border-t border-gray-200'>
             <Button
               type='button'
               variant='outline'
@@ -180,7 +180,7 @@ export const TaskModal: React.FC<TaskModalProps> = ({
           />
 
           {/* Actions */}
-          <div className='flex items-center justify-end space-x-6 space-x-reverse pt-6 border-t border-gray-200'>
+          <div className='flex items-center justify-end gap-4 pt-6 border-t border-gray-200'>
             <Button
               type='button'
               variant='outline'
