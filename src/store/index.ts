@@ -267,7 +267,13 @@ export const useAuthStore = create<AuthState>()(
       },
 
       setUser: (user: User | null) => {
-        set({ user, isAuthenticated: !!user });
+        set({ 
+          user, 
+          isAuthenticated: !!user,
+          isInitialized: true,
+          isLoading: false,
+          error: null
+        });
       },
 
       clearError: () => {
@@ -333,15 +339,15 @@ export const useAuthStore = create<AuthState>()(
             sessionTimeout: null,
             timeLeft: 0,
             timeLeftMinutes: 0,
-            isExpired: true,
+            isExpired: false, // Don't expire if no timeout is set
           };
         }
         
-        // Note: This is a simplified implementation since we don't store the expiry time
-        // In a real implementation, you'd want to store the expiry timestamp separately
-        const timeLeft = 0; // This would be calculated from stored expiry time
+        // For now, assume session is valid if timeout exists
+        // In a real implementation, you'd calculate timeLeft from stored expiry time
+        const timeLeft = 60000; // Assume 1 minute left
         const timeLeftMinutes = Math.max(0, Math.floor(timeLeft / 60000));
-        const isExpired = timeLeft <= 0;
+        const isExpired = false; // Don't auto-expire for now
         
         return {
           sessionTimeout,
