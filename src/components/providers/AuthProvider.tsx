@@ -36,6 +36,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // Trigger initial auth check after hydration
   useEffect(() => {
     if (!isHydrated) return;
+    console.log('[AUTH] Running initial auth check');
     checkAuth();
   }, [isHydrated, checkAuth]);
 
@@ -46,26 +47,40 @@ export function AuthProvider({ children }: AuthProviderProps) {
     const isLoginPage  = pathname === '/login';
     const isPublicPage = ['/login', '/signup', '/forgot-password', '/reset-password'].includes(pathname);
 
+    console.log('[AUTH] Redirect check:', { 
+      isInitialized, 
+      isAuthenticated, 
+      isLoading, 
+      pathname, 
+      isLoginPage, 
+      isPublicPage,
+      user: user?.id,
+      timestamp: new Date().toISOString()
+    });
+
     if (!isAuthenticated && !isPublicPage) {
+      console.log('[AUTH] Redirecting to login');
       router.push('/login');
     } else if (isAuthenticated && isLoginPage) {
+      console.log('[AUTH] Redirecting to home');
       router.push('/');
     }
-  }, [isInitialized, isAuthenticated, pathname, router]);
+  }, [isInitialized, isAuthenticated, isLoading, pathname, router]);
 
   // Periodically check if the session expired and logout if needed
-  useEffect(() => {
-    if (!isInitialized || !isAuthenticated) return;
+  // Temporarily disabled to prevent logout loops
+  // useEffect(() => {
+  //   if (!isInitialized || !isAuthenticated) return;
 
-    const interval = setInterval(() => {
-      const sessionStatus = getSessionStatus?.();
-      if (sessionStatus?.isExpired) {
-        logout();
-      }
-    }, 60_000); // every 60s
+  //   const interval = setInterval(() => {
+  //     const sessionStatus = getSessionStatus?.();
+  //     if (sessionStatus?.isExpired) {
+  //       logout();
+  //     }
+  //   }, 60_000); // every 60s
 
-    return () => clearInterval(interval);
-  }, [isInitialized, isAuthenticated, getSessionStatus, logout]);
+  //   return () => clearInterval(interval);
+  // }, [isInitialized, isAuthenticated, getSessionStatus, logout]);
 
   // Initialize WebSocket and register handlers once auth is ready
   useEffect(() => {
@@ -84,38 +99,39 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }, [isInitialized, user?.id]);
 
   // Add throttled activity listeners to refresh the session periodically
-  useEffect(() => {
-    if (!isInitialized) return;
+  // Temporarily disabled to prevent logout loops
+  // useEffect(() => {
+  //   if (!isInitialized) return;
 
-    let lastRefreshTime = 0;
-    const REFRESH_INTERVAL = 5 * 60 * 1000; // 5 minutes
-    let activityTimeout: ReturnType<typeof setTimeout> | null = null;
+  //   let lastRefreshTime = 0;
+  //   const REFRESH_INTERVAL = 5 * 60 * 1000; // 5 minutes
+  //   let activityTimeout: ReturnType<typeof setTimeout> | null = null;
 
-    const handleActivity = () => {
-      // Throttle activity events to once per second
-      if (activityTimeout) return;
-      activityTimeout = setTimeout(() => {
-        activityTimeout = null;
-      }, 1000);
+  //   const handleActivity = () => {
+  //     // Throttle activity events to once per second
+  //     if (activityTimeout) return;
+  //     activityTimeout = setTimeout(() => {
+  //       activityTimeout = null;
+  //     }, 1000);
 
-      const now = Date.now();
-      // Refresh only if enough time passed and auth is still valid
-      if (now - lastRefreshTime > REFRESH_INTERVAL) {
-        if (isAuthenticated && !isLoggingOut && !error) {
-          refreshSession?.();
-          lastRefreshTime = now;
-        }
-      }
-    };
+  //     const now = Date.now();
+  //     // Refresh only if enough time passed and auth is still valid
+  //     if (now - lastRefreshTime > REFRESH_INTERVAL) {
+  //       if (isAuthenticated && !isLoggingOut && !error) {
+  //         refreshSession?.();
+  //         lastRefreshTime = now;
+  //       }
+  //     }
+  //   };
 
-    const events = ['mousedown', 'keypress', 'scroll', 'touchstart'];
-    events.forEach(e => document.addEventListener(e, handleActivity, true));
+  //   const events = ['mousedown', 'keypress', 'scroll', 'touchstart'];
+  //   events.forEach(e => document.addEventListener(e, handleActivity, true));
 
-    return () => {
-      events.forEach(e => document.removeEventListener(e, handleActivity, true));
-      if (activityTimeout) clearTimeout(activityTimeout);
-    };
-  }, [isInitialized, isAuthenticated, isLoggingOut, error, refreshSession]);
+  //   return () => {
+  //     events.forEach(e => document.removeEventListener(e, handleActivity, true));
+  //     if (activityTimeout) clearTimeout(activityTimeout);
+  //   };
+  // }, [isInitialized, isAuthenticated, isLoggingOut, error, refreshSession]);
 
   // Loading states while auth is initializing
   if (!isHydrated || (!isInitialized && isLoading)) {
