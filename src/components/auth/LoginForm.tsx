@@ -24,8 +24,6 @@ export const LoginForm: React.FC<LoginFormProps> = ({
   const [generalError, setGeneralError] = useState<string | null>(null);
 
   const loginMutation = useLogin();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { setUser } = useAuthStore((state: any) => state) as any;
 
   const {
     register,
@@ -50,12 +48,8 @@ export const LoginForm: React.FC<LoginFormProps> = ({
         const user = result.data.user || result.data;
         
         if (user && (user as any).id) {
-          setUser(user);
-          
-          // Use navigation after state update
-          requestAnimationFrame(() => {
-            router.push('/');
-          });
+          // useLogin already updates the store - no need to call setUser here
+          console.log('[LOGIN] User logged in successfully:', user);
         } else {
           setGeneralError('נתוני משתמש לא תקינים');
         }
