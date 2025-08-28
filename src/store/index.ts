@@ -600,72 +600,66 @@ export const useTaskStore = create<TaskState>()(
       setupWebSocketHandlers: () => {
         const { fetchTasks } = get();
         
-        // Test event
-        ensureWebSocketInitialized().then((client) => {
-          client.on('test', (data: unknown) => {
-            console.log('WebSocket test event:', data);
-          });
-        }).catch(() => {
+                 // Test event
+         ensureWebSocketInitialized().then((client) => {
+           client.on('test', (data: unknown) => {
+             // WebSocket test event received
+           });
+         }).catch(() => {
           // Silent fail for WebSocket initialization
         });
 
-        // Task created event
-        ensureWebSocketInitialized().then((client) => {
-          client.on('task.created', async (data: unknown) => {
-            console.log('Task created:', data);
-            await fetchTasks();
-          });
-        }).catch(() => {
+                 // Task created event
+         ensureWebSocketInitialized().then((client) => {
+           client.on('task.created', async (data: unknown) => {
+             await fetchTasks();
+           });
+         }).catch(() => {
           // Silent fail for WebSocket initialization
         });
 
-        // Task updated event
-        ensureWebSocketInitialized().then((client) => {
-          client.on('task.updated', async (data: unknown) => {
-            console.log('Task updated:', data);
-            await fetchTasks();
-          });
-        }).catch(() => {
+                 // Task updated event
+         ensureWebSocketInitialized().then((client) => {
+           client.on('task.updated', async (data: unknown) => {
+             await fetchTasks();
+           });
+         }).catch(() => {
           // Silent fail for WebSocket initialization
         });
 
-        // Task deleted event
-        ensureWebSocketInitialized().then((client) => {
-          client.on('task.deleted', async (data: unknown) => {
-            console.log('Task deleted:', data);
-            await fetchTasks();
-          });
-        }).catch(() => {
+                 // Task deleted event
+         ensureWebSocketInitialized().then((client) => {
+           client.on('task.deleted', async (data: unknown) => {
+             await fetchTasks();
+           });
+         }).catch(() => {
           // Silent fail for WebSocket initialization
         });
 
-        // Task duplicated event
-        ensureWebSocketInitialized().then((client) => {
-          client.on('task.duplicated', async (data: unknown) => {
-            console.log('Task duplicated:', data);
-            await fetchTasks();
-          });
-        }).catch(() => {
+                 // Task duplicated event
+         ensureWebSocketInitialized().then((client) => {
+           client.on('task.duplicated', async (data: unknown) => {
+             await fetchTasks();
+           });
+         }).catch(() => {
           // Silent fail for WebSocket initialization
         });
 
-        // Star added event
-        ensureWebSocketInitialized().then((client) => {
-          client.on('star.added', async (data: unknown) => {
-            console.log('Star added:', data);
-            await fetchTasks();
-          });
-        }).catch(() => {
+                 // Star added event
+         ensureWebSocketInitialized().then((client) => {
+           client.on('star.added', async (data: unknown) => {
+             await fetchTasks();
+           });
+         }).catch(() => {
           // Silent fail for WebSocket initialization
         });
 
-        // Star removed event
-        ensureWebSocketInitialized().then((client) => {
-          client.on('star.removed', async (data: unknown) => {
-            console.log('Star removed:', data);
-            await fetchTasks();
-          });
-        }).catch(() => {
+                 // Star removed event
+         ensureWebSocketInitialized().then((client) => {
+           client.on('star.removed', async (data: unknown) => {
+             await fetchTasks();
+           });
+         }).catch(() => {
           // Silent fail for WebSocket initialization
         });
       },
@@ -757,91 +751,85 @@ export const setupWebSocketHandlers = (fetchTasksFn: () => Promise<void>) => {
   cleanupFunctions.forEach(cleanup => cleanup());
   cleanupFunctions = [];
 
-  // Test event handler
-  ensureWebSocketInitialized().then((client) => {
-    const cleanup = client.on('test', (data: unknown) => {
-      console.log('WebSocket test event:', data);
-    });
-    cleanupFunctions.push(cleanup);
-  }).catch(() => {
+     // Test event handler
+   ensureWebSocketInitialized().then((client) => {
+     const cleanup = client.on('test', (data: unknown) => {
+       // WebSocket test event received
+     });
+     cleanupFunctions.push(cleanup);
+   }).catch(() => {
     // Silent fail for WebSocket initialization
   });
 
-  // Task created event
-  ensureWebSocketInitialized().then((client) => {
-    const cleanup = client.on('task.created', async (data: unknown) => {
-      console.log('Task created:', data);
-      if (fetchTasksCallback) {
-        await fetchTasksCallback();
-      }
-    });
-    cleanupFunctions.push(cleanup);
-  }).catch(() => {
+     // Task created event
+   ensureWebSocketInitialized().then((client) => {
+     const cleanup = client.on('task.created', async (data: unknown) => {
+       if (fetchTasksCallback) {
+         await fetchTasksCallback();
+       }
+     });
+     cleanupFunctions.push(cleanup);
+   }).catch(() => {
     // Silent fail for WebSocket initialization
   });
 
-  // Task updated event
-  ensureWebSocketInitialized().then((client) => {
-    const cleanup = client.on('task.updated', async (data: unknown) => {
-      console.log('Task updated:', data);
-      if (fetchTasksCallback) {
-        await fetchTasksCallback();
-      }
-    });
-    cleanupFunctions.push(cleanup);
-  }).catch(() => {
+     // Task updated event
+   ensureWebSocketInitialized().then((client) => {
+     const cleanup = client.on('task.updated', async (data: unknown) => {
+       if (fetchTasksCallback) {
+         await fetchTasksCallback();
+       }
+     });
+     cleanupFunctions.push(cleanup);
+   }).catch(() => {
     // Silent fail for WebSocket initialization
   });
 
-  // Task deleted event
-  ensureWebSocketInitialized().then((client) => {
-    const cleanup = client.on('task.deleted', async (data: unknown) => {
-      console.log('Task deleted:', data);
-      if (fetchTasksCallback) {
-        await fetchTasksCallback();
-      }
-    });
-    cleanupFunctions.push(cleanup);
-  }).catch(() => {
+     // Task deleted event
+   ensureWebSocketInitialized().then((client) => {
+     const cleanup = client.on('task.deleted', async (data: unknown) => {
+       if (fetchTasksCallback) {
+         await fetchTasksCallback();
+       }
+     });
+     cleanupFunctions.push(cleanup);
+   }).catch(() => {
     // Silent fail for WebSocket initialization
   });
 
-  // Task duplicated event
-  ensureWebSocketInitialized().then((client) => {
-    const cleanup = client.on('task.duplicated', async (data: unknown) => {
-      console.log('Task duplicated:', data);
-      if (fetchTasksCallback) {
-        await fetchTasksCallback();
-      }
-    });
-    cleanupFunctions.push(cleanup);
-  }).catch(() => {
+     // Task duplicated event
+   ensureWebSocketInitialized().then((client) => {
+     const cleanup = client.on('task.duplicated', async (data: unknown) => {
+       if (fetchTasksCallback) {
+         await fetchTasksCallback();
+       }
+     });
+     cleanupFunctions.push(cleanup);
+   }).catch(() => {
     // Silent fail for WebSocket initialization
   });
 
-  // Star added event
-  ensureWebSocketInitialized().then((client) => {
-    const cleanup = client.on('star.added', async (data: unknown) => {
-      console.log('Star added:', data);
-      if (fetchTasksCallback) {
-        await fetchTasksCallback();
-      }
-    });
-    cleanupFunctions.push(cleanup);
-  }).catch(() => {
+     // Star added event
+   ensureWebSocketInitialized().then((client) => {
+     const cleanup = client.on('star.added', async (data: unknown) => {
+       if (fetchTasksCallback) {
+         await fetchTasksCallback();
+       }
+     });
+     cleanupFunctions.push(cleanup);
+   }).catch(() => {
     // Silent fail for WebSocket initialization
   });
 
-  // Star removed event
-  ensureWebSocketInitialized().then((client) => {
-    const cleanup = client.on('star.removed', async (data: unknown) => {
-      console.log('Star removed:', data);
-      if (fetchTasksCallback) {
-        await fetchTasksCallback();
-      }
-    });
-    cleanupFunctions.push(cleanup);
-  }).catch(() => {
+     // Star removed event
+   ensureWebSocketInitialized().then((client) => {
+     const cleanup = client.on('star.removed', async (data: unknown) => {
+       if (fetchTasksCallback) {
+         await fetchTasksCallback();
+       }
+     });
+     cleanupFunctions.push(cleanup);
+   }).catch(() => {
     // Silent fail for WebSocket initialization
   });
 };
