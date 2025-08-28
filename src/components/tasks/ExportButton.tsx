@@ -5,9 +5,10 @@ import { useExportMyTasks } from '@/hooks/useQueries';
 
 interface ExportButtonProps {
   className?: string;
+  hasTasks?: boolean;
 }
 
-export const ExportButton: React.FC<ExportButtonProps> = ({ className }) => {
+export const ExportButton: React.FC<ExportButtonProps> = ({ className, hasTasks = true }) => {
   const [isOpen, setIsOpen] = useState(false);
   const exportMutation = useExportMyTasks();
 
@@ -67,6 +68,11 @@ export const ExportButton: React.FC<ExportButtonProps> = ({ className }) => {
 
     setIsOpen(false);
   };
+
+  // Don't render if no tasks
+  if (!hasTasks) {
+    return null;
+  }
 
   return (
     <div className={`relative ${className}`}>
