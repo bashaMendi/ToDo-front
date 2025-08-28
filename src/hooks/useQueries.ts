@@ -328,8 +328,6 @@ export const useLogin = () => {
       if (response.data?.user) {
         const store = useAuthStore.getState();
         store.setUser(response.data.user);
-        
-
       }
       
       // Invalidate user data
