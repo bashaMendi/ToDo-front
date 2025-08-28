@@ -138,6 +138,16 @@ class ApiClient {
   deleteTask(id: string) { return this.request<{ undoToken: string }>(`/tasks/${id}`, { method: 'DELETE' }); }
   duplicateTask(id: string) { return this.request<Task>(`/tasks/${id}/duplicate`, { method: 'POST' }) as Promise<ApiResponse<Task>>; }
   assignSelfToTask(id: string) { return this.request<void>(`/tasks/${id}/assign/me`, { method: 'PUT' }); }
+  
+  // Star endpoints
+  addStar(taskId: string) { 
+    return this.request<void>(`/tasks/${taskId}/star`, { method: 'PUT' }); 
+  }
+  
+  removeStar(taskId: string) { 
+    return this.request<void>(`/tasks/${taskId}/star`, { method: 'DELETE' }); 
+  }
+  
   getStarredTasks() { return this.request<Task[]>('/me/starred'); }
   getMyTasks() { return this.request<PaginatedResponse<Task>>('/me/tasks'); }
   async exportMyTasks(format: ExportFormat = 'csv') {
