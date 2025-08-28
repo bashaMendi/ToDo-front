@@ -1,14 +1,13 @@
 [build]
   command = "npm run build"
-  publish = "out"
+  publish = ".next"
 
 [build.environment]
   NODE_VERSION = "20"
 
-[[redirects]]
-  from = "/*"
-  to = "/index.html"
-  status = 200
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+
 
 [[headers]]
   for = "/*"
@@ -17,4 +16,5 @@
     X-XSS-Protection = "1; mode=block"
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"
+    # עדכון CSP כדי לאפשר חיבורי API ו-WS
     Content-Security-Policy = "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://todo-back-bfph.onrender.com wss://todo-back-bfph.onrender.com https: wss:;"
