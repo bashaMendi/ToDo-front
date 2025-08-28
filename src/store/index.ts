@@ -41,9 +41,9 @@ interface AuthState {
   };
 }
 
-export const useAuthStore = create<AuthState>()
+export const useAuthStore = create<AuthState>()(
   devtools(
-    (set, get: () => AuthState) => ({
+    (set, get) => ({
       user: null,
       isLoading: false,
       isAuthenticated: false,
@@ -354,7 +354,7 @@ export const useAuthStore = create<AuthState>()
     {
       name: 'auth-store',
     }
-  );
+  ));
 
 // Task store
 interface TaskState {
@@ -388,9 +388,9 @@ interface TaskState {
   setupWebSocketHandlers: () => void;
 }
 
-export const useTaskStore = create<TaskState>()
+export const useTaskStore = create<TaskState>()(
   devtools(
-    (set, get: () => TaskState) => ({
+    (set, get) => ({
       tasks: [],
       isLoading: false,
       error: null,
@@ -673,7 +673,7 @@ export const useTaskStore = create<TaskState>()
     {
       name: 'task-store',
     }
-  );
+  ));
 
 // UI store
 interface UIStoreState {
@@ -692,7 +692,7 @@ interface UIStoreState {
   closeModal: () => void;
 }
 
-export const useUIStore = create<UIStoreState>()
+export const useUIStore = create<UIStoreState>()(
   devtools(
     (set) => ({
       navigation: [
@@ -732,7 +732,7 @@ export const useUIStore = create<UIStoreState>()
     {
       name: 'ui-store',
     }
-  );
+  ));
 
 // Search store
 export const useSearchStore = create<{
