@@ -75,7 +75,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       .then(() => {
         // Provide a placeholder callback; replace with the real fetchTasks when available
         setupWebSocketHandlers?.(async () => {
-          // console.log('WS event -> fetchTasks placeholder');
+          // WebSocket event received
         });
       })
       .catch(() => {
