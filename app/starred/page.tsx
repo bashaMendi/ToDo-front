@@ -40,11 +40,9 @@ function StarredTasksPage() {
     }
   };
 
-
-
   return (
     <div className='min-h-screen bg-gray-50'>
-            <Header 
+      <Header 
         onCreateTask={handleCreateTask}
       />
 
