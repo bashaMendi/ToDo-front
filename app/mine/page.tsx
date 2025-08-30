@@ -16,13 +16,14 @@ function MyTasksPage() {
   const { modal, openModal, closeModal } = useUI();
   const queryClient = useQueryClient();
 
-  // Get my tasks to check if there are any for export button
-  const { data: myTasksResponse } = useQuery({
-    queryKey: queryKeys.tasks.mine({}),
+  // Get my tasks with filters that match TaskList
+  const { data: myTasksResponse, isLoading } = useQuery({
+    queryKey: queryKeys.tasks.mine({ context: 'mine' }),
     queryFn: () => apiClient.getMyTasks(),
     staleTime: 2 * 60 * 1000, // 2 minutes
   });
 
+  // Check if there are any tasks for export button
   const hasMyTasks = (myTasksResponse?.data?.items?.length || 0) > 0;
 
   // Search is handled globally by useSearch hook
@@ -50,11 +51,9 @@ function MyTasksPage() {
     }
   };
 
-
-
   return (
     <div className='min-h-screen bg-gray-50'>
-            <Header 
+      <Header 
         onCreateTask={handleCreateTask}
       />
 
@@ -67,7 +66,8 @@ function MyTasksPage() {
               </h1>
               <p className='text-lg text-gray-600'>המשימות שמוקצות אליך</p>
             </div>
-            <ExportButton hasTasks={hasMyTasks} />
+            {/* Only show export button if there are tasks and not loading */}
+            {!isLoading && <ExportButton hasTasks={hasMyTasks} />}
           </div>
         </div>
 
