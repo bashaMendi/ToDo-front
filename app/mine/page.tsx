@@ -18,7 +18,7 @@ function MyTasksPage() {
 
   // Get my tasks with filters that match TaskList
   const { data: myTasksResponse, isLoading } = useQuery({
-    queryKey: queryKeys.tasks.mine({ context: 'mine' }),
+    queryKey: queryKeys.tasks.all({ context: 'mine' }),
     queryFn: () => apiClient.getMyTasks(),
     staleTime: 2 * 60 * 1000, // 2 minutes
   });
