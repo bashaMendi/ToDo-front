@@ -329,8 +329,11 @@ export const useLogin = () => {
         store.setUser(response.data.user);
       }
       
-      // Smart invalidation - only invalidate auth queries
+      // Invalidate auth queries
       queryClient.invalidateQueries({ queryKey: queryKeys.auth.me });
+      
+      // Invalidate tasks queries to load fresh data after login
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
     },
   });
 };
@@ -357,8 +360,11 @@ export const useSignup = () => {
         store.setUser(response.data.user);
       }
       
-      // Smart invalidation - only invalidate auth queries
+      // Invalidate auth queries
       queryClient.invalidateQueries({ queryKey: queryKeys.auth.me });
+      
+      // Invalidate tasks queries to load fresh data after signup
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
     },
   });
 };
