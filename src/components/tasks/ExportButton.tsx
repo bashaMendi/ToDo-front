@@ -69,11 +69,6 @@ export const ExportButton: React.FC<ExportButtonProps> = ({ className, hasTasks 
     setIsOpen(false);
   };
 
-  // Don't render if no tasks
-  if (!hasTasks) {
-    return null;
-  }
-
   return (
     <div className={`relative ${className}`}>
       <Button
@@ -82,6 +77,7 @@ export const ExportButton: React.FC<ExportButtonProps> = ({ className, hasTasks 
         size='sm'
         icon={<Download className='h-4 w-4' />}
         loading={exportMutation.isPending}
+        disabled={!hasTasks}
       >
         ייצא משימות
       </Button>
