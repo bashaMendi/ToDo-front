@@ -14,7 +14,7 @@ export const useTasks = (filters: TaskFilters = {}) => {
   return useQuery({
     queryKey: queryKeys.tasks.all(filters),
     queryFn: () => apiClient.getTasks(filters),
-    staleTime: 2 * 60 * 1000, // 2 minutes
+    staleTime: 30 * 1000, // Reduced from 2 minutes to 30 seconds
   });
 };
 
@@ -23,15 +23,14 @@ export const useTask = (id: string) => {
     queryKey: queryKeys.tasks.byId(id),
     queryFn: () => apiClient.getTask(id),
     enabled: !!id && id.length > 0,
-    // Use default staleTime from query client (5 minutes)
-    // Use default gcTime from query client (10 minutes)
+    staleTime: 30 * 1000, // Added staleTime for consistency
     retry: (failureCount, error) => {
       // Don't retry 404 errors (task not found)
       if (error && typeof error === 'object' && 'code' in error && error.code === 404) {
         return false;
       }
-      // Use default retry logic (3 attempts)
-      return failureCount < 3;
+      // Use default retry logic (2 attempts)
+      return failureCount < 2;
     },
   });
 };
@@ -40,7 +39,7 @@ export const useStarredTasks = () => {
   return useQuery({
     queryKey: queryKeys.tasks.starred,
     queryFn: () => apiClient.getStarredTasks(),
-    staleTime: 2 * 60 * 1000, // 2 minutes
+    staleTime: 30 * 1000, // Reduced from 2 minutes to 30 seconds
   });
 };
 
@@ -48,7 +47,7 @@ export const useMyTasks = () => {
   return useQuery({
     queryKey: queryKeys.tasks.mine({}),
     queryFn: () => apiClient.getMyTasks(),
-    staleTime: 2 * 60 * 1000, // 2 minutes
+    staleTime: 30 * 1000, // Reduced from 2 minutes to 30 seconds
   });
 };
 
@@ -312,7 +311,7 @@ export const useMe = () => {
   return useQuery({
     queryKey: queryKeys.auth.me,
     queryFn: () => apiClient.getCurrentUser(),
-    staleTime: 10 * 60 * 1000, // 10 minutes
+    staleTime: 2 * 60 * 1000, // Reduced from 10 minutes to 2 minutes
   });
 };
 
@@ -330,7 +329,7 @@ export const useLogin = () => {
         store.setUser(response.data.user);
       }
       
-      // Invalidate user data
+      // Smart invalidation - only invalidate auth queries
       queryClient.invalidateQueries({ queryKey: queryKeys.auth.me });
     },
   });
@@ -358,7 +357,7 @@ export const useSignup = () => {
         store.setUser(response.data.user);
       }
       
-      // Invalidate user data
+      // Smart invalidation - only invalidate auth queries
       queryClient.invalidateQueries({ queryKey: queryKeys.auth.me });
     },
   });
