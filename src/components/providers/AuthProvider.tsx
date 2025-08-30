@@ -41,6 +41,42 @@ export function AuthProvider({ children }: AuthProviderProps) {
     checkAuth();
   }, [isHydrated, checkAuth]);
 
+  // Optimized window focus and visibility change handlers
+  useEffect(() => {
+    if (!isHydrated || !isInitialized) return;
+
+    let lastCheckTime = 0;
+    const CHECK_THROTTLE = 1000; // Reduced from 2000ms to 1000ms
+
+    const handleAuthCheck = () => {
+      const now = Date.now();
+      
+      if (now - lastCheckTime < CHECK_THROTTLE) {
+        return;
+      }
+      lastCheckTime = now;
+
+      if (!isAuthenticated && !isLoading) {
+        checkAuth();
+      }
+    };
+
+    const handleWindowFocus = () => handleAuthCheck();
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        handleAuthCheck();
+      }
+    };
+
+    window.addEventListener('focus', handleWindowFocus);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener('focus', handleWindowFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [isHydrated, isInitialized, isAuthenticated, isLoading, checkAuth]);
+
   // Redirect based on authentication state and current route
   useEffect(() => {
     if (!isInitialized) return;
@@ -72,21 +108,51 @@ export function AuthProvider({ children }: AuthProviderProps) {
   //   return () => clearInterval(interval);
   // }, [isInitialized, isAuthenticated, getSessionStatus, logout]);
 
-  // Initialize WebSocket and register handlers once auth is ready
+  // Initialize WebSocket and register handlers once auth is ready (lazy loading)
   useEffect(() => {
     if (!isInitialized) return;
 
-    ensureWebSocketInitialized()
-      .then(() => {
-        // Provide the real fetchTasks callback for WebSocket events
-        setupWebSocketHandlers?.(async () => {
-          // Invalidate all tasks queries to refresh data
-          await queryClient.invalidateQueries({ queryKey: ['tasks'] });
+    let wsInitialized = false;
+    let activityTimeout: NodeJS.Timeout;
+
+    const initializeWebSocket = () => {
+      if (wsInitialized) return;
+      
+      wsInitialized = true;
+      ensureWebSocketInitialized()
+        .then(() => {
+          // Provide the real fetchTasks callback for WebSocket events
+          setupWebSocketHandlers?.(async () => {
+            // Invalidate all tasks queries to refresh data
+            await queryClient.invalidateQueries({ queryKey: ['tasks'] });
+          });
+        })
+        .catch(() => {
+          // Ignore WS init errors silently (do not break the UI)
         });
-      })
-      .catch(() => {
-        // Ignore WS init errors silently (do not break the UI)
+    };
+
+    // Initialize WebSocket after 5 seconds of activity
+    const handleActivity = () => {
+      clearTimeout(activityTimeout);
+      activityTimeout = setTimeout(initializeWebSocket, 5000);
+    };
+
+    // Start activity monitoring
+    handleActivity();
+
+    // Listen for user activity
+    const events = ['mousedown', 'keypress', 'scroll', 'touchstart'];
+    events.forEach(event => {
+      document.addEventListener(event, handleActivity, { passive: true });
+    });
+
+    return () => {
+      clearTimeout(activityTimeout);
+      events.forEach(event => {
+        document.removeEventListener(event, handleActivity);
       });
+    };
   }, [isInitialized, user?.id, queryClient]);
 
   // Add throttled activity listeners to refresh the session periodically
