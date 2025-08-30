@@ -12,6 +12,9 @@ export const ExportButton: React.FC<ExportButtonProps> = ({ className, hasTasks 
   const [isOpen, setIsOpen] = useState(false);
   const exportMutation = useExportMyTasks();
 
+  // Debug logging
+  console.log('ExportButton Debug:', { hasTasks, isOpen, isPending: exportMutation.isPending });
+
   const exportFormats: Array<{
     format: 'json' | 'csv' | 'excel';
     label: string;
