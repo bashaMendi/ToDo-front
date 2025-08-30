@@ -84,10 +84,19 @@ export function AuthProvider({ children }: AuthProviderProps) {
     const isLoginPage  = pathname === '/login';
     const isPublicPage = ['/login', '/signup', '/forgot-password', '/reset-password'].includes(pathname);
 
+    // Don't redirect immediately if still loading auth
+    if (isLoading) return;
 
-
+    // Only redirect if clearly not authenticated and not on a public page
     if (!isAuthenticated && !isPublicPage) {
-      router.push('/login');
+      // Add a small delay to prevent premature redirects during auth check
+      const redirectTimeout = setTimeout(() => {
+        if (!isAuthenticated && !isLoading) {
+          router.push('/login');
+        }
+      }, 1000); // 1 second delay
+
+      return () => clearTimeout(redirectTimeout);
     } else if (isAuthenticated && isLoginPage) {
       router.push('/');
     }
