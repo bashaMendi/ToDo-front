@@ -217,60 +217,93 @@ export const useAuthStore = create<AuthState>()(
           return;
         }
         
-        set({ isLoading: true, error: null });
+        set({ isLoading: true, error: null, isInitialized: true });
         
-        if (state.user && !state.isInitialized) {
+        if (state.user && !state.isAuthenticated) {
           set({ isAuthenticated: true });
         }
         
-        try {
-          const response = await apiClient.getCurrentUser();
-          
-          if (response.data) {
-            const user = response.data;
-            set({
-              user,
-              isAuthenticated: true,
-              isLoading: false,
-              error: null,
-              isInitialized: true,
-            });
-
-            get().setupSessionTimeout(response.sessionExpiry);
-
-            ensureWebSocketInitialized().then((client) => {
-              client.connect().catch(() => {
-                // Silent fail for WebSocket connection
-              });
-              client.joinUserRoom(user.id);
-            }).catch(() => {
-              // Silent fail for WebSocket initialization
-            });
-          } else {
-            // Only logout on clear 401 errors
-            if (response.error?.code === 401) {
+        // Retry logic for auth check
+        let retryCount = 0;
+        const maxRetries = 2;
+        const retryDelay = 1000; // 1 second delay between retries
+        
+        const attemptAuthCheck = async (): Promise<boolean> => {
+          try {
+            const response = await apiClient.getCurrentUser();
+            
+            if (response.data) {
+              const user = response.data;
               set({
-                user: null,
-                isAuthenticated: false,
+                user,
+                isAuthenticated: true,
                 isLoading: false,
                 error: null,
                 isInitialized: true,
               });
-            } else {
-              // Keep current state if no clear authentication error
-              set({
-                isLoading: false,
-                isInitialized: true,
+
+              get().setupSessionTimeout(response.sessionExpiry);
+
+              ensureWebSocketInitialized().then((client) => {
+                client.connect().catch(() => {
+                  // Silent fail for WebSocket connection
+                });
+                client.joinUserRoom(user.id);
+              }).catch(() => {
+                // Silent fail for WebSocket initialization
               });
+              
+              return true; // Success
+            } else {
+              // Only logout on clear 401 errors
+              if (response.error?.code === 401) {
+                set({
+                  user: null,
+                  isAuthenticated: false,
+                  isLoading: false,
+                  error: null,
+                  isInitialized: true,
+                });
+                return true; // Don't retry 401 errors
+              } else {
+                // Keep current state if no clear authentication error
+                set({
+                  isLoading: false,
+                  isInitialized: true,
+                });
+                return false; // Retry for other errors
+              }
             }
+          } catch (error) {
+            // Keep current state on network errors
+            set({
+              isLoading: false,
+              isInitialized: true,
+            });
+            return false; // Retry for network errors
           }
-        } catch {
-          // Keep current state on network errors
-          set({
-            isLoading: false,
-            isInitialized: true,
-          });
+        };
+        
+        // Attempt auth check with retries
+        while (retryCount <= maxRetries) {
+          const success = await attemptAuthCheck();
+          if (success) {
+            return; // Auth check succeeded
+          }
+          
+          retryCount++;
+          if (retryCount <= maxRetries) {
+            // Wait before retrying
+            await new Promise(resolve => setTimeout(resolve, retryDelay));
+            set({ isLoading: true, error: null }); // Reset loading state for retry
+          }
         }
+        
+        // All retries failed - keep current state
+        set({
+          isLoading: false,
+          isInitialized: true,
+        });
       },
 
       setUser: (user: User | null) => {
