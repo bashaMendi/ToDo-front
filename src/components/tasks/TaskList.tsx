@@ -46,8 +46,6 @@ export const TaskList = memo<TaskListProps>(({
   // Log query key for debugging
   const queryKey = queryKeys.tasks.all(memoizedFilters);
 
-
-
   // Fetch tasks
   const {
     data: tasksResponse,
@@ -59,9 +57,9 @@ export const TaskList = memo<TaskListProps>(({
     queryFn: () => {
       return apiClient.getTasks(memoizedFilters as TaskFiltersType);
     },
-    staleTime: 5 * 60 * 1000, // 5 minutes
-    gcTime: 10 * 60 * 1000, // 10 minutes
-    enabled: isAuthenticated && isInitialized, // Only fetch when user is authenticated and initialized
+    staleTime: 30 * 1000, // 30 seconds - match useQueries.ts
+    gcTime: 2 * 60 * 1000, // 2 minutes - match useQueries.ts
+    enabled: isInitialized, // Start loading as soon as auth is initialized
   });
 
   // Memoized handlers
@@ -145,6 +143,15 @@ export const TaskList = memo<TaskListProps>(({
     return (
       <div className="flex items-center justify-center py-12">
         <LoadingSpinner size="lg" text="טוען משימות..." />
+      </div>
+    );
+  }
+
+  // Show message if not authenticated but auth is initialized
+  if (isInitialized && !isAuthenticated) {
+    return (
+      <div className="text-center py-12">
+        <p className="text-gray-500 text-lg">יש להתחבר כדי לראות משימות</p>
       </div>
     );
   }
