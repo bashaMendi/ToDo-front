@@ -247,20 +247,27 @@ export const useAuthStore = create<AuthState>()(
               // Silent fail for WebSocket initialization
             });
           } else {
-            set({
-              user: null,
-              isAuthenticated: false,
-              isLoading: false,
-              error: null,
-              isInitialized: true,
-            });
+            // Only logout on clear 401 errors
+            if (response.error?.code === 401) {
+              set({
+                user: null,
+                isAuthenticated: false,
+                isLoading: false,
+                error: null,
+                isInitialized: true,
+              });
+            } else {
+              // Keep current state if no clear authentication error
+              set({
+                isLoading: false,
+                isInitialized: true,
+              });
+            }
           }
         } catch {
+          // Keep current state on network errors
           set({
-            user: null,
-            isAuthenticated: false,
             isLoading: false,
-            error: null,
             isInitialized: true,
           });
         }
