@@ -98,7 +98,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
       return () => clearTimeout(redirectTimeout);
     } else if (isAuthenticated && isLoginPage) {
-      router.push('/');
+      // Only redirect to home if we're on login page and authenticated
+      // Add a small delay to prevent redirect loops
+      const redirectTimeout = setTimeout(() => {
+        if (isAuthenticated && isLoginPage) {
+          router.push('/');
+        }
+      }, 500); // 0.5 second delay
+
+      return () => clearTimeout(redirectTimeout);
     }
   }, [isInitialized, isAuthenticated, isLoading, pathname, router]);
 
