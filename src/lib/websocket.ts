@@ -33,9 +33,9 @@ class WebSocketClient {
   constructor(config?: Partial<WebSocketConfig>) {
     this.config = {
       url: WS_URL,
-      timeout: 10000,
-      maxReconnectAttempts: 5,
-      reconnectDelay: 1000,
+      timeout: 5000, // Reduced from 10000ms to 5000ms
+      maxReconnectAttempts: 3, // Reduced from 5 to 3
+      reconnectDelay: 500, // Reduced from 1000ms to 500ms
       ...config,
     };
 
