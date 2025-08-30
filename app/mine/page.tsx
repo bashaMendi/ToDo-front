@@ -66,8 +66,8 @@ function MyTasksPage() {
               </h1>
               <p className='text-lg text-gray-600'>המשימות שמוקצות אליך</p>
             </div>
-            {/* Only show export button if there are tasks and not loading */}
-            {!isLoading && <ExportButton hasTasks={hasMyTasks} />}
+            {/* Always show export button, but disable when no tasks */}
+            <ExportButton hasTasks={hasMyTasks} />
           </div>
         </div>
 
