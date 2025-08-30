@@ -25,20 +25,26 @@ export function getQueryClient(): QueryClient {
     queryClient = new QueryClient({
       defaultOptions: {
         queries: {
-          // Retry failed requests 3 times
-          retry: 3,
+          // Retry failed requests 2 times (reduced from 3)
+          retry: 2,
 
-          // Retry delay with exponential backoff
-          retryDelay: attemptIndex => Math.min(1000 * 2 ** attemptIndex, 30000),
+          // Retry delay with exponential backoff (reduced max delay)
+          retryDelay: attemptIndex => Math.min(500 * 2 ** attemptIndex, 10000),
 
-          // Stale time - data is considered fresh for 5 minutes
-          staleTime: 5 * 60 * 1000,
+          // Stale time - data is considered fresh for 1 minute (reduced from 5 minutes)
+          staleTime: 1 * 60 * 1000,
 
-          // Cache time - keep data in cache for 10 minutes
-          gcTime: 10 * 60 * 1000,
+          // Cache time - keep data in cache for 2 minutes (reduced from 10 minutes)
+          gcTime: 2 * 60 * 1000,
 
-          // Refetch on window focus
-          refetchOnWindowFocus: true,
+          // Smart refetch on window focus
+          refetchOnWindowFocus: (query) => {
+            // Don't refetch auth queries on window focus to prevent logout loops
+            if (query.queryKey[0] === 'auth') {
+              return false;
+            }
+            return true;
+          },
 
           // Refetch on reconnect
           refetchOnReconnect: true,
