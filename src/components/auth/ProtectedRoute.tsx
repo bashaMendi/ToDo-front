@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store';
+import { useTaskStore } from '@/store';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 
 interface ProtectedRouteProps {
@@ -26,6 +27,14 @@ export function ProtectedRoute({
   const [isRedirecting, setIsRedirecting] = useState(false);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { user, isAuthenticated, isLoading, isInitialized } = useAuthStore((state: any) => state) as any;
+  const { tasks, fetchTasks } = useTaskStore();
+
+  // Auto-load tasks when user is authenticated but has no tasks
+  useEffect(() => {
+    if (isAuthenticated && isInitialized && !isLoading && tasks.length === 0) {
+      fetchTasks();
+    }
+  }, [isAuthenticated, isInitialized, isLoading, tasks.length, fetchTasks]);
 
   useEffect(() => {
     // Only redirect once the auth check is complete
