@@ -6,6 +6,7 @@ import { useAuthStore, setupWebSocketHandlers } from '@/store';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 import { ensureWebSocketInitialized } from '@/lib/websocket';
 import { useQueryClient } from '@tanstack/react-query';
+import { smartSessionManager } from '@/lib/session-manager';
 
 interface AuthProviderProps {
   children: React.ReactNode;
@@ -35,18 +36,35 @@ export function AuthProvider({ children }: AuthProviderProps) {
     setIsHydrated(true);
   }, []);
 
-  // Trigger initial auth check after hydration
+  // Trigger initial auth check after hydration with a small delay to prevent race conditions
   useEffect(() => {
     if (!isHydrated) return;
-    checkAuth();
-  }, [isHydrated, checkAuth]);
+    
+    // Add a small delay to prevent race conditions with other providers
+    const authCheckTimer = setTimeout(() => {
+      smartSessionManager.checkAuth();
+    }, 100);
+    
+    return () => clearTimeout(authCheckTimer);
+  }, [isHydrated]);
+
+  // Setup smart session monitoring once auth is initialized
+  useEffect(() => {
+    if (!isInitialized || !isAuthenticated) return;
+    
+    smartSessionManager.setupMonitoring();
+    
+    return () => {
+      smartSessionManager.cleanup();
+    };
+  }, [isInitialized, isAuthenticated]);
 
   // Optimized window focus and visibility change handlers
   useEffect(() => {
     if (!isHydrated || !isInitialized) return;
 
     let lastCheckTime = 0;
-    const CHECK_THROTTLE = 1000; // Reduced from 2000ms to 1000ms
+    const CHECK_THROTTLE = 3000; // Increased to 3 seconds to reduce unnecessary checks
 
     const handleAuthCheck = () => {
       const now = Date.now();
@@ -56,8 +74,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
       }
       lastCheckTime = now;
 
+      // Only check auth if we're not authenticated and not currently loading
       if (!isAuthenticated && !isLoading) {
-        checkAuth();
+        smartSessionManager.checkAuth();
       }
     };
 
@@ -75,7 +94,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       window.removeEventListener('focus', handleWindowFocus);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [isHydrated, isInitialized, isAuthenticated, isLoading, checkAuth]);
+  }, [isHydrated, isInitialized, isAuthenticated, isLoading]);
 
   // Redirect based on authentication state and current route
   useEffect(() => {
@@ -84,27 +103,26 @@ export function AuthProvider({ children }: AuthProviderProps) {
     const isLoginPage  = pathname === '/login';
     const isPublicPage = ['/login', '/signup', '/forgot-password', '/reset-password'].includes(pathname);
 
-    // Don't redirect immediately if still loading auth
+    // Don't redirect if still loading auth
     if (isLoading) return;
 
     // Only redirect if clearly not authenticated and not on a public page
     if (!isAuthenticated && !isPublicPage) {
-      // Add a small delay to prevent premature redirects during auth check
+      // Increased delay to prevent premature redirects during auth check
       const redirectTimeout = setTimeout(() => {
         if (!isAuthenticated && !isLoading) {
           router.push('/login');
         }
-      }, 1000); // 1 second delay
+      }, 2500); // Increased to 2.5 seconds for better stability
 
       return () => clearTimeout(redirectTimeout);
     } else if (isAuthenticated && isLoginPage) {
       // Only redirect to home if we're on login page and authenticated
-      // Add a small delay to prevent redirect loops
       const redirectTimeout = setTimeout(() => {
         if (isAuthenticated && isLoginPage) {
           router.push('/');
         }
-      }, 500); // 0.5 second delay
+      }, 1000); // Increased to 1 second
 
       return () => clearTimeout(redirectTimeout);
     }
@@ -208,6 +226,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // }, [isInitialized, isAuthenticated, isLoggingOut, error, refreshSession]);
 
   // Loading states while auth is initializing
+  // Only show loading if not hydrated OR if not initialized and loading
   if (!isHydrated || (!isInitialized && isLoading)) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -220,7 +239,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }
 
   // Loading state when authenticated but user details are still being fetched
-  if (isAuthenticated && !user && isLoading) {
+  // Only show this if we're authenticated but don't have user details yet
+  // AND we're not on a protected route (which has its own loading state)
+  if (isAuthenticated && !user && isLoading && !pathname.startsWith('/mine') && !pathname.startsWith('/starred')) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
