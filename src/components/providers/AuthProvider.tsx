@@ -228,13 +228,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
   // Auto-load tasks when authentication is successful
   useEffect(() => {
     if (isAuthenticated && isInitialized && !isLoading) {
-      // Import and use task store to fetch tasks if needed
-      import('@/store').then(({ useTaskStore }) => {
-        const { tasks, fetchTasks } = useTaskStore.getState();
-        if (tasks.length === 0) {
-          fetchTasks();
-        }
-      });
+      // Let components handle their own task loading
+      // This prevents initialization issues and race conditions
     }
   }, [isAuthenticated, isInitialized, isLoading]);
 
