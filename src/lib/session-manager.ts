@@ -13,7 +13,7 @@ interface SessionConfig {
 }
 
 const defaultConfig: SessionConfig = {
-  checkInterval: 30000, // 30 seconds
+  checkInterval: 5 * 60 * 1000, // 5 minutes instead of 30 seconds
   warningThreshold: 5 * 60 * 1000, // 5 minutes
   maxRetries: 1,
   retryDelay: 1500,
