@@ -31,16 +31,21 @@ export function getQueryClient(): QueryClient {
           // Retry delay with exponential backoff (reduced max delay)
           retryDelay: attemptIndex => Math.min(500 * 2 ** attemptIndex, 10000),
 
-          // Stale time - data is considered fresh for 1 minute (reduced from 5 minutes)
-          staleTime: 1 * 60 * 1000,
+          // Stale time - data is considered fresh for 5 minutes (increased from 1 minute)
+          staleTime: 5 * 60 * 1000,
 
-          // Cache time - keep data in cache for 2 minutes (reduced from 10 minutes)
-          gcTime: 2 * 60 * 1000,
+          // Cache time - keep data in cache for 10 minutes (increased from 2 minutes)
+          gcTime: 10 * 60 * 1000,
 
-          // Smart refetch on window focus
+          // Smart refetch on window focus - reduced frequency
           refetchOnWindowFocus: (query) => {
             // Don't refetch auth queries on window focus to prevent logout loops
             if (query.queryKey[0] === 'auth') {
+              return false;
+            }
+            // Only refetch tasks queries every 5 minutes to reduce API calls
+            const lastRefetch = query.state.dataUpdatedAt;
+            if (lastRefetch && Date.now() - lastRefetch < 5 * 60 * 1000) {
               return false;
             }
             return true;
