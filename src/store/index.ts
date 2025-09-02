@@ -82,6 +82,14 @@ export const useAuthStore = create<AuthState>()(
                 // Silent fail for WebSocket initialization
               });
 
+              // Auto-load tasks after successful login
+              setTimeout(() => {
+                // Import and use task store to fetch tasks
+                import('@/store').then(({ useTaskStore }) => {
+                  useTaskStore.getState().fetchTasks();
+                });
+              }, 100);
+
               return true;
             } else {
               set({
@@ -143,6 +151,14 @@ export const useAuthStore = create<AuthState>()(
             }).catch(() => {
               // Silent fail for WebSocket initialization
             });
+
+            // Auto-load tasks after successful signup
+            setTimeout(() => {
+              // Import and use task store to fetch tasks
+              import('@/store').then(({ useTaskStore }) => {
+                useTaskStore.getState().fetchTasks();
+              });
+            }, 100);
 
             return true;
           } else {
