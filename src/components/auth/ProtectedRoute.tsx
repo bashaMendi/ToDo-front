@@ -54,8 +54,8 @@ export function ProtectedRoute({
   }, [isAuthenticated, isInitialized, requireAuth, redirectTo, router, isRedirecting]);
 
   // Show loading state while checking authentication
-  // Show loading until system is completely ready
-  if (!isInitialized || isLoading || (isAuthenticated === false && isInitialized)) {
+  // Only show loading if not initialized OR if loading and not authenticated
+  if (!isInitialized || (isLoading && !isAuthenticated)) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <LoadingSpinner size="lg" text="בודק הרשאות..." />
