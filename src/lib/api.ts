@@ -169,13 +169,23 @@ class ApiClient {
   getStarredTasks() { return this.request<Task[]>('/me/starred'); }
   getMyTasks() { return this.request<PaginatedResponse<Task>>('/me/tasks'); }
   async exportMyTasks(format: ExportFormat = 'csv') {
-    const res = await fetch(joinURL(this.baseURL, `/me/tasks/export?format=${format}`), { credentials: 'include' });
-    if (!res.ok) {
-      let err = {};
-      try { err = await res.json(); } catch {}
-      return { error: { code: res.status, message: (err as any).message || 'שגיאה בייצוא', requestId: (err as any).requestId || 'unknown' } };
+    // Use the proper request wrapper for authentication and error handling
+    const response = await this.request<Blob>(`/me/tasks/export?format=${format}`, {
+      method: 'GET',
+      headers: {
+        'Accept': format === 'json' ? 'application/json' : 
+                  format === 'csv' ? 'text/csv' : 
+                  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      }
+    });
+    
+    // If successful, return the blob data
+    if (response.data) {
+      return { data: response.data };
     }
-    return { data: await res.blob() };
+    
+    // If error, return the error
+    return { error: response.error };
   }
   healthCheck() { return this.request<{ status: string; timestamp: string }>('/health'); }
   sync(since?: string) { return this.request<Task[]>(`/sync${since ? `?since=${since}` : ''}`); }
