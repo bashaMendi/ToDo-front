@@ -223,10 +223,10 @@ export const useAuthStore = create<AuthState>()(
           set({ isAuthenticated: true });
         }
         
-        // Retry logic for auth check
+        // Simplified retry logic - reduced from 3 to 1 retry
         let retryCount = 0;
-        const maxRetries = 2;
-        const retryDelay = 1000; // 1 second delay between retries
+        const maxRetries = 1; // Reduced from 2 to 1
+        const retryDelay = 1500; // Increased from 1000ms to 1500ms
         
         const attemptAuthCheck = async (): Promise<boolean> => {
           try {
@@ -295,7 +295,8 @@ export const useAuthStore = create<AuthState>()(
           if (retryCount <= maxRetries) {
             // Wait before retrying
             await new Promise(resolve => setTimeout(resolve, retryDelay));
-            set({ isLoading: true, error: null }); // Reset loading state for retry
+            // Don't reset loading state for retry to prevent UI flicker
+            set({ error: null });
           }
         }
         
