@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
@@ -23,6 +23,7 @@ export function ProtectedRoute({
   requireAuth = true 
 }: ProtectedRouteProps) {
   const router = useRouter();
+  const [isRedirecting, setIsRedirecting] = useState(false);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { user, isAuthenticated, isLoading, isInitialized } = useAuthStore((state: any) => state) as any;
 
@@ -30,16 +31,31 @@ export function ProtectedRoute({
     // Only redirect once the auth check is complete
     if (!isInitialized) return;
 
+    // Prevent multiple redirects
+    if (isRedirecting) return;
+
     if (requireAuth && !isAuthenticated) {
-      router.push(redirectTo);
+      setIsRedirecting(true);
+      // Add a small delay to prevent redirect loops
+      const redirectTimer = setTimeout(() => {
+        router.push(redirectTo);
+      }, 100);
+      
+      return () => clearTimeout(redirectTimer);
     } else if (!requireAuth && isAuthenticated) {
       // For auth pages like login/signup, redirect authenticated users to home
-      router.push('/');
+      setIsRedirecting(true);
+      const redirectTimer = setTimeout(() => {
+        router.push('/');
+      }, 100);
+      
+      return () => clearTimeout(redirectTimer);
     }
-  }, [isAuthenticated, isInitialized, requireAuth, redirectTo, router, user, isLoading]);
+  }, [isAuthenticated, isInitialized, requireAuth, redirectTo, router, isRedirecting]);
 
   // Show loading state while checking authentication
-  if (!isInitialized || isLoading) {
+  // Only show loading if not initialized OR if loading and not authenticated
+  if (!isInitialized || (isLoading && !isAuthenticated)) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <LoadingSpinner size="lg" text="בודק הרשאות..." />
