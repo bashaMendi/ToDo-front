@@ -174,7 +174,9 @@ class ApiClient {
     const response = await this.request<Blob>(`${API_ENDPOINTS.EXPORT_TASKS}?format=${format}`, {
       method: 'GET',
       headers: {
-        'Accept': format === 'json' ? 'application/json' : 'text/csv'
+        'Accept': format === 'json' ? 'application/json' : 
+                  format === 'csv' ? 'text/csv' : 
+                  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
       }
     });
     
