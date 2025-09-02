@@ -20,7 +20,7 @@ function MyTasksPage() {
   const { data: myTasksResponse, isLoading } = useQuery({
     queryKey: queryKeys.tasks.all({ context: 'mine' }),
     queryFn: () => apiClient.getMyTasks(),
-    staleTime: 2 * 60 * 1000, // 2 minutes
+    staleTime: 5 * 60 * 1000, // 5 minutes - match other queries
   });
 
   // Check if there are any tasks for export button
