@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store';
-import { useTaskStore } from '@/store';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
 
 interface ProtectedRouteProps {
@@ -27,14 +26,6 @@ export function ProtectedRoute({
   const [isRedirecting, setIsRedirecting] = useState(false);
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { user, isAuthenticated, isLoading, isInitialized } = useAuthStore((state: any) => state) as any;
-  const { tasks, fetchTasks } = useTaskStore();
-
-  // Auto-load tasks when user is authenticated but has no tasks
-  useEffect(() => {
-    if (isAuthenticated && isInitialized && !isLoading && tasks.length === 0) {
-      fetchTasks();
-    }
-  }, [isAuthenticated, isInitialized, isLoading, tasks.length, fetchTasks]);
 
   useEffect(() => {
     // Only redirect once the auth check is complete
@@ -48,7 +39,7 @@ export function ProtectedRoute({
       // Add a small delay to prevent redirect loops
       const redirectTimer = setTimeout(() => {
         router.push(redirectTo);
-      }, 100);
+      }, 50); // Reduced from 100ms to 50ms for better UX
       
       return () => clearTimeout(redirectTimer);
     } else if (!requireAuth && isAuthenticated) {
@@ -56,15 +47,15 @@ export function ProtectedRoute({
       setIsRedirecting(true);
       const redirectTimer = setTimeout(() => {
         router.push('/');
-      }, 100);
+      }, 50); // Reduced from 100ms to 50ms for better UX
       
       return () => clearTimeout(redirectTimer);
     }
   }, [isAuthenticated, isInitialized, requireAuth, redirectTo, router, isRedirecting]);
 
   // Show loading state while checking authentication
-  // Only show loading if not initialized OR if loading and not authenticated
-  if (!isInitialized || (isLoading && !isAuthenticated)) {
+  // Show loading until system is completely ready
+  if (!isInitialized || isLoading || (isAuthenticated === false && isInitialized)) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <LoadingSpinner size="lg" text="בודק הרשאות..." />
@@ -74,12 +65,26 @@ export function ProtectedRoute({
 
   // For auth-required routes, only render if authenticated
   if (requireAuth && (!isAuthenticated || !user)) {
-    return null; // Will redirect
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <LoadingSpinner size="md" />
+          <p className="mt-4 text-gray-600">מעביר אותך להתחברות...</p>
+        </div>
+      </div>
+    );
   }
 
   // For non-auth routes (like login), only render if not authenticated
   if (!requireAuth && isAuthenticated) {
-    return null; // Will redirect
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <LoadingSpinner size="md" />
+          <p className="mt-4 text-gray-600">מעביר אותך לדף הבית...</p>
+        </div>
+      </div>
+    );
   }
 
   return <>{children}</>;
