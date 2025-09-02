@@ -1,6 +1,6 @@
 'use client';
 
-import React, { memo, useCallback } from 'react';
+import React, { memo, useCallback, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { TaskCard } from './TaskCard';
 import { TaskFilters } from './TaskFilters';
@@ -61,6 +61,13 @@ export const TaskList = memo<TaskListProps>(({
     gcTime: 10 * 60 * 1000, // 10 minutes - match query-client.ts
     enabled: isInitialized, // Start loading as soon as auth is initialized
   });
+
+  // Auto-load tasks if none are available
+  useEffect(() => {
+    if (isInitialized && !isLoading && (!tasksResponse?.data?.items || tasksResponse.data.items.length === 0)) {
+      refetch();
+    }
+  }, [isInitialized, isLoading, tasksResponse?.data?.items, refetch]);
 
   // Memoized handlers
   const handleToggleStar = useCallback(async (taskId: string) => {
