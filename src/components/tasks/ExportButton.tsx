@@ -16,7 +16,7 @@ export const ExportButton: React.FC<ExportButtonProps> = ({ className, hasTasks 
   console.log('ExportButton Debug:', { hasTasks, isOpen, isPending: exportMutation.isPending });
 
   const exportFormats: Array<{
-    format: 'json' | 'csv';
+    format: 'json' | 'csv' | 'excel';
     label: string;
     icon: React.ComponentType<{ className?: string }>;
     description: string;
@@ -33,16 +33,24 @@ export const ExportButton: React.FC<ExportButtonProps> = ({ className, hasTasks 
       icon: FileSpreadsheet,
       description: 'קובץ Excel/CSV',
     },
+    {
+      format: 'excel',
+      label: 'Excel',
+      icon: FileSpreadsheet,
+      description: 'קובץ Excel מתקדם',
+    },
   ];
 
-  const handleExport = async (format: 'json' | 'csv') => {
+  const handleExport = async (format: 'json' | 'csv' | 'excel') => {
     try {
       const result = await exportMutation.mutateAsync(format);
 
       if (result.data) {
         // Create download link
         const blob = new Blob([result.data], {
-          type: format === 'json' ? 'application/json' : 'text/csv',
+          type: format === 'json' ? 'application/json' : 
+                 format === 'csv' ? 'text/csv' : 
+                 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         });
 
         const url = window.URL.createObjectURL(blob);
