@@ -20,6 +20,7 @@ interface AuthState {
   isAuthenticated: boolean;
   error: string | null;
   sessionTimeout: NodeJS.Timeout | null;
+  sessionExpiryTime: number | null; // Add this field to store actual expiry time
   isInitialized: boolean;
   isLoggingOut: boolean;
 
@@ -49,6 +50,7 @@ export const useAuthStore = create<AuthState>()(
       isAuthenticated: false,
       error: null,
       sessionTimeout: null,
+      sessionExpiryTime: null,
       isInitialized: false,
       isLoggingOut: false,
 
@@ -198,6 +200,7 @@ export const useAuthStore = create<AuthState>()(
             isAuthenticated: false,
             error: null,
             sessionTimeout: null,
+            sessionExpiryTime: null,
             isLoggingOut: false,
           });
         } catch {
@@ -206,6 +209,7 @@ export const useAuthStore = create<AuthState>()(
             isAuthenticated: false,
             error: null,
             sessionTimeout: null,
+            sessionExpiryTime: null,
             isLoggingOut: false,
           });
         }
@@ -263,6 +267,8 @@ export const useAuthStore = create<AuthState>()(
                   isLoading: false,
                   error: null,
                   isInitialized: true,
+                  sessionTimeout: null,
+                  sessionExpiryTime: null,
                 });
                 return true; // Don't retry 401 errors
               } else {
@@ -362,20 +368,26 @@ export const useAuthStore = create<AuthState>()(
           get().logout();
         }, expiryTime - Date.now());
         
-        set({ sessionTimeout: timeout });
+        set({ 
+          sessionTimeout: timeout,
+          sessionExpiryTime: expiryTime 
+        });
       },
 
       clearSessionTimeout: () => {
         const { sessionTimeout } = get();
         if (sessionTimeout) {
           clearTimeout(sessionTimeout);
-          set({ sessionTimeout: null });
+          set({ 
+            sessionTimeout: null,
+            sessionExpiryTime: null 
+          });
         }
       },
 
       getSessionStatus: () => {
-        const { sessionTimeout } = get();
-        if (!sessionTimeout) {
+        const { sessionTimeout, sessionExpiryTime } = get();
+        if (!sessionTimeout || !sessionExpiryTime) {
           return {
             sessionTimeout: null,
             timeLeft: 0,
@@ -384,11 +396,11 @@ export const useAuthStore = create<AuthState>()(
           };
         }
         
-        // For now, assume session is valid if timeout exists
-        // In a real implementation, you'd calculate timeLeft from stored expiry time
-        const timeLeft = 60000; // Assume 1 minute left
-        const timeLeftMinutes = Math.max(0, Math.floor(timeLeft / 60000));
-        const isExpired = false; // Don't auto-expire for now
+        // Calculate actual time left based on stored expiry time
+        const now = Date.now();
+        const timeLeft = Math.max(0, sessionExpiryTime - now);
+        const timeLeftMinutes = Math.floor(timeLeft / 60000);
+        const isExpired = timeLeft <= 0;
         
         return {
           sessionTimeout,
