@@ -83,12 +83,20 @@ export const useAuthStore = create<AuthState>()(
               });
 
               // Auto-load tasks after successful login
-              setTimeout(() => {
-                // Import and use task store to fetch tasks
-                import('@/store').then(({ useTaskStore }) => {
-                  useTaskStore.getState().fetchTasks();
-                });
-              }, 100);
+              setTimeout(async () => {
+                try {
+                  // Direct API call to load tasks instead of dynamic import
+                  const response = await apiClient.getTasks();
+                  if (response.data) {
+                    // Update task store directly
+                    import('@/store').then(({ useTaskStore }) => {
+                      useTaskStore.getState().setTasks(response.data.items);
+                    });
+                  }
+                } catch (error) {
+                  // Silent fail - tasks will be loaded by components
+                }
+              }, 200);
 
               return true;
             } else {
@@ -153,12 +161,20 @@ export const useAuthStore = create<AuthState>()(
             });
 
             // Auto-load tasks after successful signup
-            setTimeout(() => {
-              // Import and use task store to fetch tasks
-              import('@/store').then(({ useTaskStore }) => {
-                useTaskStore.getState().fetchTasks();
-              });
-            }, 100);
+            setTimeout(async () => {
+              try {
+                // Direct API call to load tasks instead of dynamic import
+                const response = await apiClient.getTasks();
+                if (response.data) {
+                  // Update task store directly
+                  import('@/store').then(({ useTaskStore }) => {
+                    useTaskStore.getState().setTasks(response.data.items);
+                  });
+                }
+              } catch (error) {
+                // Silent fail - tasks will be loaded by components
+              }
+            }, 200);
 
             return true;
           } else {
@@ -466,6 +482,7 @@ interface TaskState {
   setModalState: (state: ModalState) => void;
   setFilters: (filters: TaskFilters) => void;
   clearError: () => void;
+  setTasks: (tasks: Task[]) => void;
   
   // WebSocket Actions
   connectWebSocket: () => Promise<void>;
@@ -670,6 +687,10 @@ export const useTaskStore = create<TaskState>()(
 
       clearError: () => {
         set({ error: null });
+      },
+
+      setTasks: (tasks: Task[]) => {
+        set({ tasks });
       },
 
       connectWebSocket: async () => {
