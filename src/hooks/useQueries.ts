@@ -14,7 +14,7 @@ export const useTasks = (filters: TaskFilters = {}) => {
   return useQuery({
     queryKey: queryKeys.tasks.all(filters),
     queryFn: () => apiClient.getTasks(filters),
-    staleTime: 30 * 1000, // Reduced from 2 minutes to 30 seconds
+    staleTime: 5 * 60 * 1000, // Increased from 30 seconds to 5 minutes
   });
 };
 
@@ -23,7 +23,7 @@ export const useTask = (id: string) => {
     queryKey: queryKeys.tasks.byId(id),
     queryFn: () => apiClient.getTask(id),
     enabled: !!id && id.length > 0,
-    staleTime: 30 * 1000, // Added staleTime for consistency
+    staleTime: 5 * 60 * 1000, // Increased from 30 seconds to 5 minutes
     retry: (failureCount, error) => {
       // Don't retry 404 errors (task not found)
       if (error && typeof error === 'object' && 'code' in error && error.code === 404) {
@@ -39,7 +39,7 @@ export const useStarredTasks = () => {
   return useQuery({
     queryKey: queryKeys.tasks.starred,
     queryFn: () => apiClient.getStarredTasks(),
-    staleTime: 30 * 1000, // Reduced from 2 minutes to 30 seconds
+    staleTime: 5 * 60 * 1000, // Increased from 30 seconds to 5 minutes
   });
 };
 
@@ -47,7 +47,7 @@ export const useMyTasks = () => {
   return useQuery({
     queryKey: queryKeys.tasks.mine({}),
     queryFn: () => apiClient.getMyTasks(),
-    staleTime: 30 * 1000, // Reduced from 2 minutes to 30 seconds
+    staleTime: 5 * 60 * 1000, // Increased from 30 seconds to 5 minutes
   });
 };
 
