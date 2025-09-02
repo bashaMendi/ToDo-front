@@ -2,6 +2,7 @@ import type {
   User, Task, ApiResponse, PaginatedResponse, LoginCredentials, SignupCredentials,
   CreateTaskData, UpdateTaskData, TaskFilters, ExportFormat,
 } from '@/types';
+import { API_ENDPOINTS } from './constants';
 
 // Resolve base URL at build time (NEXT_PUBLIC_* must be set in Netlify)
 const RAW_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3001';
@@ -170,12 +171,10 @@ class ApiClient {
   getMyTasks() { return this.request<PaginatedResponse<Task>>('/me/tasks'); }
   async exportMyTasks(format: ExportFormat = 'csv') {
     // Use the proper request wrapper for authentication and error handling
-    const response = await this.request<Blob>(`/me/tasks/export?format=${format}`, {
+    const response = await this.request<Blob>(`${API_ENDPOINTS.EXPORT_TASKS}?format=${format}`, {
       method: 'GET',
       headers: {
-        'Accept': format === 'json' ? 'application/json' : 
-                  format === 'csv' ? 'text/csv' : 
-                  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        'Accept': format === 'json' ? 'application/json' : 'text/csv'
       }
     });
     
