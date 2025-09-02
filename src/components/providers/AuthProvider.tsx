@@ -64,7 +64,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     if (!isHydrated || !isInitialized) return;
 
     let lastCheckTime = 0;
-    const CHECK_THROTTLE = 3000; // Increased to 3 seconds to reduce unnecessary checks
+    const CHECK_THROTTLE = 30000; // Increased to 30 seconds to reduce unnecessary checks
 
     const handleAuthCheck = () => {
       const now = Date.now();
