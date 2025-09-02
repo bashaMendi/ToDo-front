@@ -62,9 +62,17 @@ export const TaskList = memo<TaskListProps>(({
     enabled: isInitialized, // Start loading as soon as auth is initialized
   });
 
+  // Auto-load tasks when component mounts and user is authenticated
+  useEffect(() => {
+    if (isInitialized && isAuthenticated && !tasksResponse?.data?.items) {
+      refetch();
+    }
+  }, [isInitialized, isAuthenticated, tasksResponse?.data?.items, refetch]);
+
   // Auto-load tasks if none are available
   useEffect(() => {
-    if (isInitialized && !isLoading && (!tasksResponse?.data?.items || tasksResponse.data.items.length === 0)) {
+    if (isInitialized && !isLoading && !tasksResponse?.data?.items) {
+      // Only load if we don't have any task response yet
       refetch();
     }
   }, [isInitialized, isLoading, tasksResponse?.data?.items, refetch]);
