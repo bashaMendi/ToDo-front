@@ -364,9 +364,18 @@ export const useAuthStore = create<AuthState>()(
         
         if (!expiryTime) return;
         
+        // Validate expiry time - prevent negative timeouts
+        const timeUntilExpiry = expiryTime - Date.now();
+        
+        if (timeUntilExpiry <= 0) {
+          // Session already expired, logout immediately
+          get().logout();
+          return;
+        }
+        
         const timeout = setTimeout(() => {
           get().logout();
-        }, expiryTime - Date.now());
+        }, timeUntilExpiry);
         
         set({ 
           sessionTimeout: timeout,
