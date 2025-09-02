@@ -64,9 +64,18 @@ export const ExportButton: React.FC<ExportButtonProps> = ({ className, hasTasks 
         link.click();
         document.body.removeChild(link);
         window.URL.revokeObjectURL(url);
+        
+        // Show success feedback
+        console.log(`Export successful: ${format} file downloaded`);
+      } else if (result.error) {
+        // Show error feedback
+        console.error('Export failed:', result.error.message);
+        // You can add a toast notification here if you have one
       }
-    } catch {
-      // Silent fail for export
+    } catch (error) {
+      // Handle unexpected errors
+      console.error('Export error:', error);
+      // You can add a toast notification here if you have one
     }
 
     setIsOpen(false);
