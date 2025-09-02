@@ -84,8 +84,8 @@ class SmartSessionManager {
     this.scheduleNextCheck();
 
     // Setup warning if session is close to expiry
-    if (store.sessionTimeout) {
-      this.setupWarning(store.sessionTimeout);
+    if (store.sessionExpiryTime) {
+      this.setupWarning(store.sessionExpiryTime);
     }
   }
 
