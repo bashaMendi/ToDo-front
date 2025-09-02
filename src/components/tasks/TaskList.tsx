@@ -57,8 +57,8 @@ export const TaskList = memo<TaskListProps>(({
     queryFn: () => {
       return apiClient.getTasks(memoizedFilters as TaskFiltersType);
     },
-    staleTime: 30 * 1000, // 30 seconds - match useQueries.ts
-    gcTime: 2 * 60 * 1000, // 2 minutes - match useQueries.ts
+    staleTime: 5 * 60 * 1000, // 5 minutes - match useQueries.ts
+    gcTime: 10 * 60 * 1000, // 10 minutes - match query-client.ts
     enabled: isInitialized, // Start loading as soon as auth is initialized
   });
 
