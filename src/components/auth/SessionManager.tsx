@@ -12,21 +12,20 @@ interface SessionManagerProps {
  */
 export function SessionManager({ children }: SessionManagerProps) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { isAuthenticated, sessionTimeout, refreshSession } = useAuthStore((state: any) => state) as any;
+  const { isAuthenticated, sessionExpiryTime, refreshSession } = useAuthStore((state: any) => state) as any;
   const [showWarning, setShowWarning] = useState(false);
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
 
   // Setup session timeout monitoring
   useEffect(() => {
-    if (!isAuthenticated || !sessionTimeout) return;
+    if (!isAuthenticated || !sessionExpiryTime) return;
 
-    // Calculate time until session expires (24 hours)
-    // const SESSION_DURATION = 24 * 60 * 60 * 1000; // 24 hours
+    // Calculate time until session expires
     const WARNING_THRESHOLD = 5 * 60 * 1000; // 5 minutes before expiry
     
     const checkTimeLeft = () => {
       const now = Date.now();
-      const timeRemaining = sessionTimeout - now;
+      const timeRemaining = sessionExpiryTime - now;
       
       setTimeLeft(timeRemaining);
       
@@ -40,8 +39,7 @@ export function SessionManager({ children }: SessionManagerProps) {
       // Auto logout when session expires
       if (timeRemaining <= 0) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (useAuthStore as any).getState().logout();
+        (useAuthStore as any).getState().logout();
       }
     };
 
@@ -50,7 +48,7 @@ export function SessionManager({ children }: SessionManagerProps) {
     checkTimeLeft(); // Initial check
 
     return () => clearInterval(interval);
-  }, [isAuthenticated, sessionTimeout]);
+  }, [isAuthenticated, sessionExpiryTime]);
 
   // Setup activity listeners to refresh session
   useEffect(() => {
