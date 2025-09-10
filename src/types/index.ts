@@ -163,3 +163,24 @@ export interface Session {
   user: User;
   expiresAt: string;
 }
+
+// Sync types
+export interface DeletedTask {
+  id: string;
+  deletedAt: string;
+  version: number;
+}
+
+export interface SyncSummary {
+  totalUpdated: number;
+  totalDeleted: number;
+  hasMore: boolean;
+}
+
+export interface SyncResponse {
+  since: string;
+  currentTimestamp: string;
+  updatedTasks: Task[];
+  deletedTasks: DeletedTask[];
+  summary: SyncSummary;
+}
