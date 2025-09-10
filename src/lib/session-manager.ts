@@ -51,6 +51,12 @@ class SmartSessionManager {
 
     try {
       const store = useAuthStore.getState();
+      
+      // Don't check auth if we're logging out or already authenticated
+      if (store.isLoggingOut || store.isAuthenticated) {
+        return;
+      }
+      
       await store.checkAuth();
     } finally {
       this.isChecking = false;
@@ -120,7 +126,7 @@ class SmartSessionManager {
   }
 
   /**
-   * Cleanup timeouts
+   * Cleanup timeouts and reset state
    */
   cleanup(): void {
     if (this.checkTimeout) {
@@ -132,6 +138,10 @@ class SmartSessionManager {
       clearTimeout(this.warningTimeout);
       this.warningTimeout = null;
     }
+
+    // Reset state
+    this.isChecking = false;
+    this.lastCheckTime = 0;
   }
 }
 
