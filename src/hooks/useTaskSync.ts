@@ -1,5 +1,5 @@
 import { useEffect, useCallback } from 'react';
-import { useTaskStore } from '@/store';
+import { useTaskStore, useAuthStore } from '@/store';
 import { SyncStorage } from '@/lib/sync-storage';
 
 interface UseTaskSyncOptions {
@@ -10,10 +10,11 @@ interface UseTaskSyncOptions {
 export function useTaskSync(options: UseTaskSyncOptions = {}) {
   const { autoSyncOnMount = true, syncInterval } = options;
   const { syncTasks, applySyncData } = useTaskStore();
+  const { isAuthenticated, isInitialized } = useAuthStore();
 
   // Automatic sync on mount
   useEffect(() => {
-    if (autoSyncOnMount) {
+    if (autoSyncOnMount && isAuthenticated && isInitialized) {
       const performInitialSync = async () => {
         try {
           await syncTasks();
@@ -26,11 +27,11 @@ export function useTaskSync(options: UseTaskSyncOptions = {}) {
       const timeoutId = setTimeout(performInitialSync, 500);
       return () => clearTimeout(timeoutId);
     }
-  }, [autoSyncOnMount, syncTasks]);
+  }, [autoSyncOnMount, syncTasks, isAuthenticated, isInitialized]);
 
   // Periodic sync
   useEffect(() => {
-    if (syncInterval && syncInterval > 0) {
+    if (syncInterval && syncInterval > 0 && isAuthenticated && isInitialized) {
       const intervalId = setInterval(async () => {
         try {
           await syncTasks();
@@ -41,7 +42,7 @@ export function useTaskSync(options: UseTaskSyncOptions = {}) {
 
       return () => clearInterval(intervalId);
     }
-  }, [syncInterval, syncTasks]);
+  }, [syncInterval, syncTasks, isAuthenticated, isInitialized]);
 
   // Manual sync function
   const manualSync = useCallback(async () => {
