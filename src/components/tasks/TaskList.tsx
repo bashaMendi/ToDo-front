@@ -10,6 +10,7 @@ import { apiClient } from '@/lib/api';
 import { queryKeys } from '@/lib/query-client';
 import { useSearchStore, useAuthStore } from '@/store';
 import { usePerformance } from '@/hooks/usePerformance';
+import { useTaskSync } from '@/hooks/useTaskSync';
 
 interface TaskListProps {
   filters?: Record<string, unknown>;
@@ -33,6 +34,12 @@ export const TaskList = memo<TaskListProps>(({
 
   // Get search query from global store
   const { searchQuery } = useSearchStore();
+
+  // Use task sync hook
+  useTaskSync({
+    autoSyncOnMount: true,
+    syncInterval: 30000, // Sync every 30 seconds
+  });
 
   // Combine filters with search query
   const memoizedFilters = React.useMemo(() => {
