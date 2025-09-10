@@ -242,8 +242,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }, [isAuthenticated, isInitialized, isLoading]);
 
   // Loading states while auth is initializing
-  // Only show loading if not hydrated OR if not initialized and loading
-  if (!isHydrated || (!isInitialized && isLoading)) {
+  // Only show loading if not hydrated OR if not initialized and loading AND not on public pages
+  const isPublicPage = ['/login', '/signup', '/forgot-password', '/reset-password'].includes(pathname);
+  
+  if (!isHydrated || (!isInitialized && isLoading && !isPublicPage)) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
