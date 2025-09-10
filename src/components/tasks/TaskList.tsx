@@ -1,14 +1,12 @@
 'use client';
 
-import React, { memo, useCallback, useEffect } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import React, { memo, useCallback } from 'react';
 import { TaskCard } from './TaskCard';
 import { TaskFilters } from './TaskFilters';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
-import { Task, TaskFilters as TaskFiltersType } from '@/types';
+import { Task } from '@/types';
 import { apiClient } from '@/lib/api';
-import { queryKeys } from '@/lib/query-client';
-import { useSearchStore, useAuthStore } from '@/store';
+import { useSearchStore, useAuthStore, useTaskStore } from '@/store';
 import { usePerformance } from '@/hooks/usePerformance';
 import { useTaskSync } from '@/hooks/useTaskSync';
 
@@ -27,7 +25,6 @@ export const TaskList = memo<TaskListProps>(({
 }) => {
   // Performance monitoring
   const { measureRender } = usePerformance('TaskList');
-  const queryClient = useQueryClient();
 
   // Get authentication state
   const { isAuthenticated, isInitialized } = useAuthStore();
@@ -50,85 +47,25 @@ export const TaskList = memo<TaskListProps>(({
     return combinedFilters;
   }, [filters, searchQuery]);
 
-  // Log query key for debugging
-  const queryKey = queryKeys.tasks.all(memoizedFilters);
+  // Query key no longer needed since we use store
 
-  // Fetch tasks
-  const {
-    data: tasksResponse,
-    isLoading,
-    error,
-    refetch,
-  } = useQuery({
-    queryKey: queryKey,
-    queryFn: () => {
-      return apiClient.getTasks(memoizedFilters as TaskFiltersType);
-    },
-    staleTime: 5 * 60 * 1000, // 5 minutes - match useQueries.ts
-    gcTime: 10 * 60 * 1000, // 10 minutes - match query-client.ts
-    enabled: isInitialized, // Start loading as soon as auth is initialized
-  });
+  // Get tasks from store (populated by sync)
+  const { tasks, isLoading, error } = useTaskStore();
 
-  // Auto-load tasks when component mounts and user is authenticated
-  useEffect(() => {
-    if (isInitialized && isAuthenticated && !tasksResponse?.data?.items) {
-      refetch();
-    }
-  }, [isInitialized, isAuthenticated, tasksResponse?.data?.items, refetch]);
+  // Tasks are now loaded via sync, no need for manual loading
 
-  // Auto-load tasks if none are available
-  useEffect(() => {
-    if (isInitialized && !isLoading && !tasksResponse?.data?.items) {
-      // Only load if we don't have any task response yet
-      refetch();
-    }
-  }, [isInitialized, isLoading, tasksResponse?.data?.items, refetch]);
+  // Tasks are loaded via sync, no manual loading needed
 
   // Memoized handlers
   const handleToggleStar = useCallback(async (taskId: string) => {
     try {
       // Find the task to check if it's currently starred
-      const task = tasksResponse?.data?.items?.find(t => t.id === taskId);
+      const task = tasks.find(t => t.id === taskId);
       if (!task) {
         return;
       }
 
-      // Optimistic update - immediately update the UI
-      const updatedTasks = tasksResponse?.data?.items?.map(t => 
-        t.id === taskId ? { ...t, isStarred: !t.isStarred } : t
-      );
-      
-      // Update the query cache optimistically for all tasks queries
-      if (tasksResponse?.data) {
-        // Update current query
-        queryClient.setQueryData(queryKey, {
-          ...tasksResponse,
-          data: {
-            ...tasksResponse.data,
-            items: updatedTasks
-          }
-        });
-        
-        // Update all other tasks queries with the same task
-        queryClient.setQueriesData(
-          { queryKey: ['tasks'] },
-          (oldData: unknown) => {
-            const data = oldData as { data?: { items?: Task[] } };
-            if (data?.data?.items) {
-              return {
-                ...data,
-                data: {
-                  ...data.data,
-                  items: data.data.items.map((t: Task) => 
-                    t.id === taskId ? { ...t, isStarred: !t.isStarred } : t
-                  )
-                }
-              };
-            }
-            return oldData;
-          }
-        );
-      }
+      // Sync will handle the UI update after API call
 
       // Call API to toggle star
       if (task.isStarred) {
@@ -137,14 +74,10 @@ export const TaskList = memo<TaskListProps>(({
         await apiClient.addStar(taskId);
       }
 
-      // Invalidate all tasks queries to update all pages
-      await queryClient.invalidateQueries({ queryKey: ['tasks'] });
-      
-    } catch {
-      // Revert optimistic update on error
-      await queryClient.invalidateQueries({ queryKey: ['tasks'] });
+    } catch (error) {
+      console.error('Failed to toggle star:', error);
     }
-  }, [tasksResponse, queryClient, queryKey]);
+  }, [tasks]);
 
 
 
@@ -156,7 +89,7 @@ export const TaskList = memo<TaskListProps>(({
   React.useEffect(() => {
     const cleanup = measureRender();
     return cleanup;
-  }, [measureRender, tasksResponse]);
+  }, [measureRender, tasks]);
 
 
 
@@ -182,17 +115,12 @@ export const TaskList = memo<TaskListProps>(({
     return (
       <div className="text-center py-12">
         <p className="text-red-600 mb-4">שגיאה בטעינת המשימות</p>
-        <button
-          onClick={() => refetch()}
-          className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
-        >
-          נסה שוב
-        </button>
+        <p className="text-gray-500 text-sm">{error}</p>
       </div>
     );
   }
 
-  const tasks = tasksResponse?.data?.items || [];
+  // Tasks are already available from store
 
   return (
     <div className="space-y-6">
