@@ -186,13 +186,15 @@ class ApiClient {
   getStarredTasks() { return this.request<Task[]>('/me/starred'); }
   getMyTasks() { return this.request<PaginatedResponse<Task>>('/me/tasks'); }
   async exportMyTasks(format: ExportFormat = 'csv') {
-    // Use the proper request wrapper for authentication and error handling
-    const response = await this.request<Blob>(`${API_ENDPOINTS.EXPORT_TASKS}?format=${format}`, {
+    // Add cache-busting parameter to prevent 304 responses
+    const timestamp = Date.now();
+    const response = await this.request<Blob>(`${API_ENDPOINTS.EXPORT_TASKS}?format=${format}&_t=${timestamp}`, {
       method: 'GET',
       headers: {
         'Accept': format === 'json' ? 'application/json' : 
                   format === 'csv' ? 'text/csv' : 
-                  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+                  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'Cache-Control': 'no-cache'
       }
     });
     
