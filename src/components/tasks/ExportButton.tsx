@@ -12,8 +12,6 @@ export const ExportButton: React.FC<ExportButtonProps> = ({ className, hasTasks 
   const [isOpen, setIsOpen] = useState(false);
   const exportMutation = useExportMyTasks();
 
-  // Debug logging
-  console.log('ExportButton Debug:', { hasTasks, isOpen, isPending: exportMutation.isPending });
 
   const exportFormats: Array<{
     format: 'json' | 'csv' | 'excel';
@@ -46,13 +44,9 @@ export const ExportButton: React.FC<ExportButtonProps> = ({ className, hasTasks 
       const result = await exportMutation.mutateAsync(format);
 
       if (result.data) {
-        // Create download link
-        const blob = new Blob([result.data], {
-          type: format === 'json' ? 'application/json' : 
-                 format === 'csv' ? 'text/csv' : 
-                 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        });
-
+        // result.data is already a Blob from the API
+        const blob = result.data;
+        
         const url = window.URL.createObjectURL(blob);
         const link = document.createElement('a');
         link.href = url;
