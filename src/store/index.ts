@@ -719,15 +719,15 @@ export const useTaskStore = create<TaskState>()(
             // Save new timestamp
             SyncStorage.setLastSyncTimestamp(response.data.currentTimestamp);
             
-            // Update tasks
+            // Update tasks in store (for WebSocket updates)
             get().applySyncData(response.data);
             return true;
           } else {
-            set({ error: response.error?.message || 'Task sync error' });
+            console.warn('Sync failed:', response.error?.message || 'Task sync error');
             return false;
           }
-        } catch {
-          set({ error: 'Network error during task sync' });
+        } catch (error) {
+          console.warn('Network error during task sync:', error);
           return false;
         }
       },
