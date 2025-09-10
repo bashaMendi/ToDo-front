@@ -1,12 +1,14 @@
 'use client';
 
-import React, { memo, useCallback } from 'react';
+import React, { memo, useCallback, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { TaskCard } from './TaskCard';
 import { TaskFilters } from './TaskFilters';
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner';
-import { Task } from '@/types';
+import { Task, TaskFilters as TaskFiltersType } from '@/types';
 import { apiClient } from '@/lib/api';
-import { useSearchStore, useAuthStore, useTaskStore } from '@/store';
+import { queryKeys } from '@/lib/query-client';
+import { useSearchStore, useAuthStore } from '@/store';
 import { usePerformance } from '@/hooks/usePerformance';
 import { useTaskSync } from '@/hooks/useTaskSync';
 
@@ -32,10 +34,10 @@ export const TaskList = memo<TaskListProps>(({
   // Get search query from global store
   const { searchQuery } = useSearchStore();
 
-  // Use task sync hook
+  // Use task sync hook for background updates
   useTaskSync({
-    autoSyncOnMount: true,
-    syncInterval: 30000, // Sync every 30 seconds
+    autoSyncOnMount: false, // Don't auto-sync, useQuery handles initial load
+    syncInterval: 30000, // Sync every 30 seconds for updates
   });
 
   // Combine filters with search query
@@ -47,14 +49,28 @@ export const TaskList = memo<TaskListProps>(({
     return combinedFilters;
   }, [filters, searchQuery]);
 
-  // Query key no longer needed since we use store
+  // Log query key for debugging
+  const queryKey = queryKeys.tasks.all(memoizedFilters);
 
-  // Get tasks from store (populated by sync)
-  const { tasks, isLoading, error } = useTaskStore();
+  // Fetch tasks with proper filtering
+  const {
+    data: tasksResponse,
+    isLoading,
+    error,
+  } = useQuery({
+    queryKey: queryKey,
+    queryFn: () => {
+      return apiClient.getTasks(memoizedFilters as TaskFiltersType);
+    },
+    staleTime: 5 * 60 * 1000, // 5 minutes
+    gcTime: 10 * 60 * 1000, // 10 minutes
+    enabled: isInitialized && isAuthenticated,
+  });
 
-  // Tasks are now loaded via sync, no need for manual loading
+  // Get tasks from response with memoization
+  const tasks = useMemo(() => tasksResponse?.data?.items || [], [tasksResponse?.data?.items]);
 
-  // Tasks are loaded via sync, no manual loading needed
+  // Tasks are loaded via useQuery with proper filtering
 
   // Memoized handlers
   const handleToggleStar = useCallback(async (taskId: string) => {
@@ -115,7 +131,7 @@ export const TaskList = memo<TaskListProps>(({
     return (
       <div className="text-center py-12">
         <p className="text-red-600 mb-4">שגיאה בטעינת המשימות</p>
-        <p className="text-gray-500 text-sm">{error}</p>
+        <p className="text-gray-500 text-sm">{error?.message || 'Unknown error'}</p>
       </div>
     );
   }
