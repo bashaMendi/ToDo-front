@@ -292,6 +292,16 @@ export const useAuthStore = create<AuthState>()(
         
         set({ isLoading: true, error: null, isInitialized: true });
         
+        // Add timeout to prevent infinite loading
+        const timeoutId = setTimeout(() => {
+          set({ 
+            isLoading: false, 
+            isInitialized: true,
+            isAuthenticated: false,
+            user: null 
+          });
+        }, 10000); // 10 second timeout
+        
         if (state.user && !state.isAuthenticated) {
           set({ isAuthenticated: true });
         }
@@ -340,6 +350,7 @@ export const useAuthStore = create<AuthState>()(
             } else {
               // Only logout on clear 401 errors
               if (response.error?.code === 401) {
+                clearTimeout(timeoutId);
                 set({
                   user: null,
                   isAuthenticated: false,
@@ -352,6 +363,7 @@ export const useAuthStore = create<AuthState>()(
                 return true; // Don't retry 401 errors
               } else {
                 // Keep current state if no clear authentication error
+                clearTimeout(timeoutId);
                 set({
                   isLoading: false,
                   isInitialized: true,
@@ -361,6 +373,7 @@ export const useAuthStore = create<AuthState>()(
             }
           } catch (error) {
             // Keep current state on network errors
+            clearTimeout(timeoutId);
             set({
               isLoading: false,
               isInitialized: true,
@@ -386,6 +399,7 @@ export const useAuthStore = create<AuthState>()(
         }
         
         // All retries failed - keep current state
+        clearTimeout(timeoutId);
         set({
           isLoading: false,
           isInitialized: true,
@@ -513,7 +527,6 @@ interface TaskState {
   modalState: ModalState;
 
   // Actions
-  fetchTasks: (filters?: TaskFilters) => Promise<void>;
   createTask: (taskData: CreateTaskData) => Promise<boolean>;
   updateTask: (id: string, taskData: UpdateTaskData) => Promise<boolean>;
   deleteTask: (id: string) => Promise<boolean>;
@@ -555,19 +568,6 @@ export const useTaskStore = create<TaskState>()(
       selectedTask: null,
       modalState: { isOpen: false, type: null },
 
-      fetchTasks: async (filters?: TaskFilters) => {
-        set({ isLoading: true, error: null });
-        try {
-          const response = await apiClient.getTasks(filters || get().filters);
-          if (response.data) {
-            set({ tasks: response.data.items, isLoading: false });
-          } else {
-            set({ error: response.error?.message || 'שגיאה בטעינת משימות', isLoading: false });
-          }
-        } catch {
-          set({ error: 'שגיאת רשת בטעינת משימות', isLoading: false });
-        }
-      },
 
       createTask: async (taskData: CreateTaskData) => {
         set({ isLoading: true, error: null });
@@ -651,7 +651,7 @@ export const useTaskStore = create<TaskState>()(
           const response = await apiClient.assignSelfToTask(id);
           if (response.data !== undefined) {
             // For void responses, we just need to refresh the task list
-            await get().fetchTasks();
+            await get().syncTasks();
             set({ isLoading: false });
             return true;
           } else {
@@ -670,7 +670,7 @@ export const useTaskStore = create<TaskState>()(
           const response = await apiClient.addStar(id);
           if (response.data !== undefined) {
             // For void responses, we just need to refresh the task list
-            await get().fetchTasks();
+            await get().syncTasks();
             set({ isLoading: false });
             return true;
           } else {
@@ -689,7 +689,7 @@ export const useTaskStore = create<TaskState>()(
           const response = await apiClient.removeStar(id);
           if (response.data !== undefined) {
             // For void responses, we just need to refresh the task list
-            await get().fetchTasks();
+            await get().syncTasks();
             set({ isLoading: false });
             return true;
           } else {
@@ -787,7 +787,7 @@ export const useTaskStore = create<TaskState>()(
       },
 
       setupWebSocketHandlers: () => {
-        const { fetchTasks } = get();
+        const { syncTasks } = get();
         
                  // Test event
          ensureWebSocketInitialized().then((client) => {
@@ -936,11 +936,11 @@ export const useSearchStore = create<{
 
 // WebSocket event handlers with proper cleanup
 let cleanupFunctions: (() => void)[] = [];
-let fetchTasksCallback: (() => Promise<void>) | null = null;
+let syncTasksCallback: (() => Promise<void>) | null = null;
 
-export const setupWebSocketHandlers = (fetchTasksFn: () => Promise<void>) => {
+export const setupWebSocketHandlers = (syncTasksFn: () => Promise<void>) => {
   // Store the callback for later use
-  fetchTasksCallback = fetchTasksFn;
+  syncTasksCallback = syncTasksFn;
   
   // Clean up existing handlers
   cleanupFunctions.forEach(cleanup => cleanup());
@@ -959,8 +959,8 @@ export const setupWebSocketHandlers = (fetchTasksFn: () => Promise<void>) => {
      // Task created event
    ensureWebSocketInitialized().then((client) => {
      const cleanup = client.on('task.created', async (data: unknown) => {
-       if (fetchTasksCallback) {
-         await fetchTasksCallback();
+       if (syncTasksCallback) {
+         await syncTasksCallback();
        }
      });
      cleanupFunctions.push(cleanup);
@@ -971,8 +971,8 @@ export const setupWebSocketHandlers = (fetchTasksFn: () => Promise<void>) => {
      // Task updated event
    ensureWebSocketInitialized().then((client) => {
      const cleanup = client.on('task.updated', async (data: unknown) => {
-       if (fetchTasksCallback) {
-         await fetchTasksCallback();
+       if (syncTasksCallback) {
+         await syncTasksCallback();
        }
      });
      cleanupFunctions.push(cleanup);
@@ -983,8 +983,8 @@ export const setupWebSocketHandlers = (fetchTasksFn: () => Promise<void>) => {
      // Task deleted event
    ensureWebSocketInitialized().then((client) => {
      const cleanup = client.on('task.deleted', async (data: unknown) => {
-       if (fetchTasksCallback) {
-         await fetchTasksCallback();
+       if (syncTasksCallback) {
+         await syncTasksCallback();
        }
      });
      cleanupFunctions.push(cleanup);
@@ -995,8 +995,8 @@ export const setupWebSocketHandlers = (fetchTasksFn: () => Promise<void>) => {
      // Task duplicated event
    ensureWebSocketInitialized().then((client) => {
      const cleanup = client.on('task.duplicated', async (data: unknown) => {
-       if (fetchTasksCallback) {
-         await fetchTasksCallback();
+       if (syncTasksCallback) {
+         await syncTasksCallback();
        }
      });
      cleanupFunctions.push(cleanup);
@@ -1007,8 +1007,8 @@ export const setupWebSocketHandlers = (fetchTasksFn: () => Promise<void>) => {
      // Star added event
    ensureWebSocketInitialized().then((client) => {
      const cleanup = client.on('star.added', async (data: unknown) => {
-       if (fetchTasksCallback) {
-         await fetchTasksCallback();
+       if (syncTasksCallback) {
+         await syncTasksCallback();
        }
      });
      cleanupFunctions.push(cleanup);
@@ -1019,8 +1019,8 @@ export const setupWebSocketHandlers = (fetchTasksFn: () => Promise<void>) => {
      // Star removed event
    ensureWebSocketInitialized().then((client) => {
      const cleanup = client.on('star.removed', async (data: unknown) => {
-       if (fetchTasksCallback) {
-         await fetchTasksCallback();
+       if (syncTasksCallback) {
+         await syncTasksCallback();
        }
      });
      cleanupFunctions.push(cleanup);
