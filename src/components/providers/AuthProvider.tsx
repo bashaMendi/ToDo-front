@@ -25,10 +25,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const isAuthenticated  = useAuthStore(s => s.isAuthenticated);
   const user             = useAuthStore(s => s.user);
 
-  const checkAuth        = useAuthStore(s => s.checkAuth);
-  const getSessionStatus = useAuthStore(s => s.getSessionStatus);
-  const logout           = useAuthStore(s => s.logout);
-  const refreshSession   = useAuthStore(s => s.refreshSession);
   const isLoggingOut     = useAuthStore(s => s.isLoggingOut);
 
   // Wait for client hydration before running client-only logic
@@ -40,13 +36,19 @@ export function AuthProvider({ children }: AuthProviderProps) {
   useEffect(() => {
     if (!isHydrated) return;
     
+    // Don't check auth if we're on login/signup pages
+    const isPublicPage = ['/login', '/signup', '/forgot-password', '/reset-password'].includes(pathname);
+    if (isPublicPage) {
+      return;
+    }
+    
     // Add a small delay to prevent race conditions with other providers
     const authCheckTimer = setTimeout(() => {
       smartSessionManager.checkAuth();
     }, 100);
     
     return () => clearTimeout(authCheckTimer);
-  }, [isHydrated]);
+  }, [isHydrated, pathname]);
 
   // Setup smart session monitoring once auth is initialized
   useEffect(() => {
@@ -74,8 +76,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
       }
       lastCheckTime = now;
 
-      // Only check auth if we're not authenticated and not currently loading
-      if (!isAuthenticated && !isLoading) {
+      // Don't check auth if we're on login/signup pages
+      const isPublicPage = ['/login', '/signup', '/forgot-password', '/reset-password'].includes(pathname);
+      if (isPublicPage) {
+        return;
+      }
+
+      // Only check auth if we're not authenticated, not currently loading, and not logging out
+      if (!isAuthenticated && !isLoading && !isLoggingOut) {
         smartSessionManager.checkAuth();
       }
     };
@@ -94,7 +102,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       window.removeEventListener('focus', handleWindowFocus);
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [isHydrated, isInitialized, isAuthenticated, isLoading]);
+  }, [isHydrated, isInitialized, isAuthenticated, isLoading, isLoggingOut, pathname]);
 
   // Redirect based on authentication state and current route
   useEffect(() => {
