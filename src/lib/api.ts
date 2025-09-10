@@ -1,6 +1,6 @@
 import type {
   User, Task, ApiResponse, PaginatedResponse, LoginCredentials, SignupCredentials,
-  CreateTaskData, UpdateTaskData, TaskFilters, ExportFormat,
+  CreateTaskData, UpdateTaskData, TaskFilters, ExportFormat, SyncResponse,
 } from '@/types';
 import { API_ENDPOINTS } from './constants';
 
@@ -73,8 +73,15 @@ class ApiClient {
           );
 
           if (isMeEndpoint) {
-            // Return "not logged" state without side effects
-            return { data: undefined, error: undefined };
+            // Return clear "not logged" state
+            return { 
+              data: undefined, 
+              error: { 
+                code: 401, 
+                message: 'Not authenticated', 
+                requestId: data.requestId || 'unknown' 
+              } 
+            };
           }
 
           // For login/signup 401: surface validation errors
@@ -189,7 +196,9 @@ class ApiClient {
     return { error: response.error };
   }
   healthCheck() { return this.request<{ status: string; timestamp: string }>('/health'); }
-  sync(since?: string) { return this.request<Task[]>(`/sync${since ? `?since=${since}` : ''}`); }
+  sync(since: string) { 
+    return this.request<SyncResponse>(`/sync?since=${encodeURIComponent(since)}`); 
+  }
 }
 
 export const apiClient = new ApiClient(API_BASE_URL);
