@@ -9,9 +9,12 @@ import {
   CreateTaskData,
   UpdateTaskData,
   ExportFormat,
+  SyncResponse,
 } from '@/types';
 import { apiClient } from '@/lib/api';
 import { ensureWebSocketInitialized, resetWebSocketClient } from '@/lib/websocket';
+import { SyncStorage } from '@/lib/sync-storage';
+import { smartSessionManager } from '@/lib/session-manager';
 
 // Auth store
 interface AuthState {
@@ -78,6 +81,16 @@ export const useAuthStore = create<AuthState>()(
                   // Silent fail for WebSocket connection
                 });
                 client.joinUserRoom(user.id);
+                
+                // Sync tasks when reconnecting to WebSocket
+                setTimeout(async () => {
+                  try {
+                    const { useTaskStore } = await import('@/store');
+                    await useTaskStore.getState().syncTasks();
+                  } catch {
+                    // Silent fail for sync
+                  }
+                }, 1000);
               }).catch(() => {
                 // Silent fail for WebSocket initialization
               });
@@ -156,6 +169,16 @@ export const useAuthStore = create<AuthState>()(
                 // Silent fail for WebSocket connection
               });
               client.joinUserRoom(user.id);
+              
+              // Sync tasks when reconnecting to WebSocket
+              setTimeout(async () => {
+                try {
+                  const { useTaskStore } = await import('@/store');
+                  await useTaskStore.getState().syncTasks();
+                } catch {
+                  // Silent fail for sync
+                }
+              }, 1000);
             }).catch(() => {
               // Silent fail for WebSocket initialization
             });
@@ -226,6 +249,14 @@ export const useAuthStore = create<AuthState>()(
 
           resetWebSocketClient();
           get().clearSessionTimeout();
+          smartSessionManager.cleanup();
+
+          // Clear any cached data
+          if (typeof window !== 'undefined') {
+            // Clear localStorage sync timestamp
+            localStorage.removeItem('lastSyncTimestamp');
+            // Clear any other cached data if needed
+          }
 
           set({
             user: null,
@@ -236,6 +267,12 @@ export const useAuthStore = create<AuthState>()(
             isLoggingOut: false,
           });
         } catch {
+          // Clear any cached data even on error
+          smartSessionManager.cleanup();
+          if (typeof window !== 'undefined') {
+            localStorage.removeItem('lastSyncTimestamp');
+          }
+
           set({
             user: null,
             isAuthenticated: false,
@@ -249,7 +286,7 @@ export const useAuthStore = create<AuthState>()(
 
       checkAuth: async () => {
         const state = get();
-        if (state.isLoading) {
+        if (state.isLoading || state.isLoggingOut) {
           return;
         }
         
@@ -285,6 +322,16 @@ export const useAuthStore = create<AuthState>()(
                   // Silent fail for WebSocket connection
                 });
                 client.joinUserRoom(user.id);
+                
+                // Sync tasks when reconnecting to WebSocket
+                setTimeout(async () => {
+                  try {
+                    const { useTaskStore } = await import('@/store');
+                    await useTaskStore.getState().syncTasks();
+                  } catch {
+                    // Silent fail for sync
+                  }
+                }, 1000);
               }).catch(() => {
                 // Silent fail for WebSocket initialization
               });
@@ -475,7 +522,8 @@ interface TaskState {
   addStar: (id: string) => Promise<boolean>;
   removeStar: (id: string) => Promise<boolean>;
   exportTasks: (format: ExportFormat) => Promise<void>;
-  syncTasks: (since?: string) => Promise<void>;
+  syncTasks: (since?: string) => Promise<boolean>;
+  applySyncData: (syncData: SyncResponse) => void;
   
   // UI Actions
   setSelectedTask: (task: Task | null) => void;
@@ -664,13 +712,49 @@ export const useTaskStore = create<TaskState>()(
 
       syncTasks: async (since?: string) => {
         try {
-          const response = await apiClient.sync(since);
+          const syncSince = since || SyncStorage.getInitialSyncTimestamp();
+          const response = await apiClient.sync(syncSince);
+          
           if (response.data) {
-            set({ tasks: response.data });
+            // Save new timestamp
+            SyncStorage.setLastSyncTimestamp(response.data.currentTimestamp);
+            
+            // Update tasks
+            get().applySyncData(response.data);
+            return true;
+          } else {
+            set({ error: response.error?.message || 'Task sync error' });
+            return false;
           }
         } catch {
-          set({ error: 'שגיאה בסנכרון משימות' });
+          set({ error: 'Network error during task sync' });
+          return false;
         }
+      },
+
+      applySyncData: (syncData: SyncResponse) => {
+        set((state) => {
+          let updatedTasks = [...state.tasks];
+
+          // Update existing tasks or add new ones
+          syncData.updatedTasks.forEach(updatedTask => {
+            const existingIndex = updatedTasks.findIndex(task => task.id === updatedTask.id);
+            if (existingIndex >= 0) {
+              // Update existing task
+              updatedTasks[existingIndex] = updatedTask;
+            } else {
+              // Add new task
+              updatedTasks.push(updatedTask);
+            }
+          });
+
+          // Remove deleted tasks
+          syncData.deletedTasks.forEach(deletedTask => {
+            updatedTasks = updatedTasks.filter(task => task.id !== deletedTask.id);
+          });
+
+          return { tasks: updatedTasks };
+        });
       },
 
       setSelectedTask: (task: Task | null) => {
@@ -717,56 +801,62 @@ export const useTaskStore = create<TaskState>()(
                  // Task created event
          ensureWebSocketInitialized().then((client) => {
            client.on('task.created', async (data: unknown) => {
-             await fetchTasks();
+             const { useTaskStore } = await import('@/store');
+             await useTaskStore.getState().syncTasks();
            });
          }).catch(() => {
-          // Silent fail for WebSocket initialization
-        });
+           // Silent fail for WebSocket initialization
+         });
 
                  // Task updated event
          ensureWebSocketInitialized().then((client) => {
            client.on('task.updated', async (data: unknown) => {
-             await fetchTasks();
+             const { useTaskStore } = await import('@/store');
+             await useTaskStore.getState().syncTasks();
            });
          }).catch(() => {
-          // Silent fail for WebSocket initialization
-        });
+           // Silent fail for WebSocket initialization
+         });
 
                  // Task deleted event
          ensureWebSocketInitialized().then((client) => {
            client.on('task.deleted', async (data: unknown) => {
-             await fetchTasks();
+             const { useTaskStore } = await import('@/store');
+             await useTaskStore.getState().syncTasks();
            });
          }).catch(() => {
-          // Silent fail for WebSocket initialization
-        });
+           // Silent fail for WebSocket initialization
+         });
 
                  // Task duplicated event
          ensureWebSocketInitialized().then((client) => {
            client.on('task.duplicated', async (data: unknown) => {
-             await fetchTasks();
+             const { useTaskStore } = await import('@/store');
+             await useTaskStore.getState().syncTasks();
            });
          }).catch(() => {
-          // Silent fail for WebSocket initialization
-        });
+           // Silent fail for WebSocket initialization
+         });
 
                  // Star added event
          ensureWebSocketInitialized().then((client) => {
            client.on('star.added', async (data: unknown) => {
-             await fetchTasks();
+             const { useTaskStore } = await import('@/store');
+             await useTaskStore.getState().syncTasks();
            });
          }).catch(() => {
-          // Silent fail for WebSocket initialization
-        });
+           // Silent fail for WebSocket initialization
+         });
 
                  // Star removed event
          ensureWebSocketInitialized().then((client) => {
            client.on('star.removed', async (data: unknown) => {
-             await fetchTasks();
+             const { useTaskStore } = await import('@/store');
+             await useTaskStore.getState().syncTasks();
            });
          }).catch(() => {
-          // Silent fail for WebSocket initialization
-        });
+           // Silent fail for WebSocket initialization
+         });
       },
     }),
     {
