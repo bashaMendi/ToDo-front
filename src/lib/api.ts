@@ -60,7 +60,16 @@ class ApiClient {
 
       const contentType = response.headers.get('content-type');
       let data: any = {};
+      
       if (contentType?.includes('application/json')) {
+        try { data = await response.json(); } catch { data = {}; }
+      } else if (contentType?.includes('text/csv') || 
+                 contentType?.includes('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet') ||
+                 contentType?.includes('application/octet-stream')) {
+        // Handle binary data (CSV, Excel, etc.)
+        data = await response.blob();
+      } else {
+        // Try to parse as JSON by default
         try { data = await response.json(); } catch { data = {}; }
       }
 
