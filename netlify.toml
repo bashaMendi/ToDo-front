@@ -43,3 +43,9 @@
   to = "https://todo-back-bfph.onrender.com/stars/:splat"
   status = 200
   force = true
+
+[[redirects]]
+  from = "/sync"
+  to = "https://todo-back-bfph.onrender.com/sync"
+  status = 200
+  force = true
