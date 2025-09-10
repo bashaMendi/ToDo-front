@@ -49,3 +49,9 @@
   to = "https://todo-back-bfph.onrender.com/sync"
   status = 200
   force = true
+
+[[redirects]]
+  from = "/me/tasks/export"
+  to = "https://todo-back-bfph.onrender.com/me/tasks/export"
+  status = 200
+  force = true
